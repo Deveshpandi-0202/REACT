@@ -22,7 +22,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["JWT_SECRET_KEY"] = "super-secret-change-me"
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 
-CORS(app, origins=["http://localhost:5173", "https://deveshpandi-0202.github.io"])
+CORS(app, origins=["http://localhost:5173", "https://deveshpandi-0202.github.io", "https://blinkit-backend-mg62.onrender.com"])
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
 
