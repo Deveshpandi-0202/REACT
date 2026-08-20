@@ -30,6 +30,7 @@ export default function EditProduct() {
           stock: String(p.stock),
         });
       })
+      .catch(() => setError("Failed to load product"))
       .finally(() => setLoading(false));
   }, [id]);
 

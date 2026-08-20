@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../api/axios";
 import { useCart } from "../context/CartContext";
@@ -10,6 +10,11 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [added, setAdded] = useState(false);
   const { addToCart } = useCart();
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    return () => clearTimeout(timerRef.current);
+  }, []);
 
   useEffect(() => {
     api
@@ -21,7 +26,8 @@ export default function ProductDetail() {
   const handleAddToCart = () => {
     addToCart(product, quantity);
     setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setAdded(false), 2000);
   };
 
   if (loading) return <div className="loading">Loading...</div>;
@@ -52,8 +58,9 @@ export default function ProductDetail() {
           </button>
           <span className="qty-value">{quantity}</span>
           <button
-            onClick={() => setQuantity(quantity + 1)}
+            onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
             className="qty-btn"
+            disabled={quantity >= product.stock}
           >
             +
           </button>

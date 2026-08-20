@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import CartItem from "../components/CartItem";
@@ -11,6 +11,11 @@ export default function Cart() {
   const navigate = useNavigate();
   const [ordering, setOrdering] = useState(false);
   const [message, setMessage] = useState("");
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    return () => clearTimeout(timerRef.current);
+  }, []);
 
   const handleCheckout = async () => {
     if (!user) {
@@ -27,7 +32,8 @@ export default function Cart() {
       await api.post("/orders", { items: orderItems });
       clearCart();
       setMessage("Order placed successfully!");
-      setTimeout(() => navigate("/"), 2000);
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => navigate("/"), 2000);
     } catch (err) {
       setMessage(err.response?.data?.error || "Order failed");
     } finally {

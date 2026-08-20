@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import api from "../api/axios";
 import CategoryFilter from "../components/CategoryFilter";
 import ProductCard from "../components/ProductCard";
@@ -10,6 +10,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const debounceRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -20,27 +21,30 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError("");
-    const params = {};
-    if (activeCategory) params.category = activeCategory;
-    if (search) params.search = search;
-    api
-      .get("/products", { params })
-      .then((res) => {
-        if (!cancelled) {
-          setProducts(res.data);
-          setLoading(false);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError("Failed to load products. Is the backend running?");
-          setLoading(false);
-        }
-      });
-    return () => { cancelled = true; };
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      let cancelled = false;
+      setLoading(true);
+      setError("");
+      const params = {};
+      if (activeCategory) params.category = activeCategory;
+      if (search) params.search = search;
+      api
+        .get("/products", { params })
+        .then((res) => {
+          if (!cancelled) {
+            setProducts(res.data);
+            setLoading(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setError("Failed to load products. Is the backend running?");
+            setLoading(false);
+          }
+        });
+    }, 300);
+    return () => { clearTimeout(debounceRef.current); };
   }, [activeCategory, search]);
 
   return (

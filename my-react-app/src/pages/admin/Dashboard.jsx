@@ -14,7 +14,7 @@ export default function Dashboard() {
         setProducts(res.data);
         setLoading(false);
       }
-    }).catch((err) => {
+    }).catch(() => {
       if (!cancelled) {
         setError("Failed to load products. Is the backend running?");
         setLoading(false);
@@ -25,8 +25,12 @@ export default function Dashboard() {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this product?")) return;
-    await api.delete(`/products/${id}`);
-    setProducts((prev) => prev.filter((p) => p.id !== id));
+    try {
+      await api.delete(`/products/${id}`);
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+    } catch {
+      setError("Failed to delete product");
+    }
   };
 
   return (

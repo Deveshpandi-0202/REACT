@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -10,6 +10,11 @@ export default function Signup() {
   const [success, setSuccess] = useState("");
   const { signup } = useAuth();
   const navigate = useNavigate();
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    return () => clearTimeout(timerRef.current);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,7 +23,8 @@ export default function Signup() {
     try {
       await signup(name, email, password);
       setSuccess("Account created! Redirecting to sign in...");
-      setTimeout(() => navigate("/signin"), 1500);
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => navigate("/signin"), 1500);
     } catch (err) {
       setError(err.response?.data?.error || "Signup failed");
     }
