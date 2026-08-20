@@ -16,7 +16,7 @@ import "./App.css";
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/REACT">
       <AuthProvider>
         <CartProvider>
           <Navbar />
