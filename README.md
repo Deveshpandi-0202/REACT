@@ -408,17 +408,7 @@ Auto-deploys via `render.yaml`:
 
 ---
 
-## Built With
 
-Built using [OpenCode](https://opencode.ai) — an AI-powered coding assistant.
-
----
-
-## License
-
-This project is open source and available for educational purposes.
-
----
 
 ## Author
 
