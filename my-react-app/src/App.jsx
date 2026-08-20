@@ -16,7 +16,7 @@ import "./App.css";
 
 function App() {
   return (
-    <BrowserRouter basename="/REACT">
+    <BrowserRouter basename={import.meta.env.PROD ? "/REACT" : ""}>
       <AuthProvider>
         <CartProvider>
           <Navbar />

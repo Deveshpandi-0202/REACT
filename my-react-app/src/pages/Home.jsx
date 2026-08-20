@@ -9,17 +9,20 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     api.get("/categories").then((res) => {
       if (!cancelled) setCategories(res.data);
-    });
+    }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setError("");
     const params = {};
     if (activeCategory) params.category = activeCategory;
     if (search) params.search = search;
@@ -28,6 +31,12 @@ export default function Home() {
       .then((res) => {
         if (!cancelled) {
           setProducts(res.data);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError("Failed to load products. Is the backend running?");
           setLoading(false);
         }
       });
@@ -54,6 +63,7 @@ export default function Home() {
         onSelect={setActiveCategory}
       />
 
+      {error && <div className="error-msg">{error}</div>}
       {loading ? (
         <div className="loading">Loading products...</div>
       ) : products.length === 0 ? (

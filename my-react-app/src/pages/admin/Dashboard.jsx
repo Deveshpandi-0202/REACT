@@ -5,12 +5,18 @@ import api from "../../api/axios";
 export default function Dashboard() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     api.get("/products").then((res) => {
       if (!cancelled) {
         setProducts(res.data);
+        setLoading(false);
+      }
+    }).catch((err) => {
+      if (!cancelled) {
+        setError("Failed to load products. Is the backend running?");
         setLoading(false);
       }
     });
@@ -32,6 +38,7 @@ export default function Dashboard() {
         </Link>
       </div>
 
+      {error && <div className="error-msg">{error}</div>}
       {loading ? (
         <div className="loading">Loading...</div>
       ) : (
