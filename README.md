@@ -65,7 +65,12 @@ A full-stack grocery delivery web application inspired by Blinkit. Built with Re
 | Flask-CORS | Cross-origin resource sharing |
 | Werkzeug | Password hashing |
 | Gunicorn | Production WSGI server |
-| SQLite | Database |
+
+### Database
+
+| Technology | Purpose |
+|------------|---------|
+| SQLite | Lightweight relational database (auto-created on first run) |
 
 ### DevOps & Deployment
 
@@ -73,7 +78,31 @@ A full-stack grocery delivery web application inspired by Blinkit. Built with Re
 |------|---------|
 | GitHub Actions | CI/CD — lint, build, deploy frontend to GitHub Pages |
 | Render | Hosts the backend API |
-| PowerShell deploy script | Manual GitHub Pages deployment |
+
+---
+
+## Project Architecture
+
+```
+React Frontend (Vite)
+    |
+    v
+Axios API Requests (with JWT interceptor)
+    |
+    v
+Flask REST API
+    |
+    v
+JWT Authentication / Authorization
+    |
+    v
+SQLAlchemy ORM
+    |
+    v
+SQLite Database
+```
+
+The frontend communicates with the Flask backend through REST API endpoints. Authentication is handled via JWT tokens stored in `localStorage`. The Axios interceptor automatically attaches the token to every API request. Admin-only routes are protected both on the frontend (via `ProtectedRoute` component) and on the backend (via JWT validation and role checks).
 
 ---
 
@@ -86,17 +115,17 @@ REACT/
 │       └── deploy.yml              # GitHub Actions CI/CD pipeline
 ├── backend/
 │   ├── app.py                      # Flask app — routes, models, init
-│   ├── seed.py                     # Database seeder
+│   ├── seed.py                     # Database seeder (standalone script)
 │   ├── requirements.txt            # Python dependencies
 │   ├── runtime.txt                 # Python version pin
-│   └── blinkit.db                  # SQLite database (auto-created)
+│   └── blinkit.db                  # SQLite database (auto-created, git-ignored)
 ├── my-react-app/
 │   ├── index.html                  # HTML entry point
 │   ├── package.json                # Node dependencies & scripts
 │   ├── vite.config.js              # Vite configuration
 │   ├── eslint.config.js            # ESLint flat config
-│   ├── .env.example                # Env template
-│   ├── .env.production             # Production API URL
+│   ├── .env.example                # Env template for local development
+│   ├── .env.production             # Production API URL (GitHub Pages)
 │   └── src/
 │       ├── main.jsx                # React entry point
 │       ├── App.jsx                 # Root component with routes
@@ -105,14 +134,14 @@ REACT/
 │       ├── api/
 │       │   └── axios.js            # Axios instance + JWT interceptor
 │       ├── context/
-│       │   ├── AuthContext.jsx      # Authentication state
-│       │   └── CartContext.jsx      # Shopping cart state
+│       │   ├── AuthContext.jsx      # Authentication state management
+│       │   └── CartContext.jsx      # Shopping cart state management
 │       ├── components/
-│       │   ├── Navbar.jsx           # Navigation bar
-│       │   ├── ProtectedRoute.jsx   # Auth guard
+│       │   ├── Navbar.jsx           # Navigation bar with cart badge
+│       │   ├── ProtectedRoute.jsx   # Auth/role guard
 │       │   ├── ProductCard.jsx      # Product grid card
 │       │   ├── CartItem.jsx         # Cart line item
-│       │   └── CategoryFilter.jsx   # Category pill buttons
+│       │   └── CategoryFilter.jsx   # Category filter buttons
 │       └── pages/
 │           ├── Home.jsx             # Product listing with search & filters
 │           ├── ProductDetail.jsx    # Single product view + add to cart
@@ -124,7 +153,7 @@ REACT/
 │               ├── AddProduct.jsx   # Add product form
 │               ├── EditProduct.jsx  # Edit product form
 │               └── UserManagement.jsx # User management panel
-├── deploy.ps1                      # Manual deploy script
+├── deploy.ps1                      # Manual deploy script (PowerShell)
 ├── render.yaml                     # Render deployment config
 └── README.md
 ```
@@ -200,10 +229,10 @@ REACT/
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/api/products` | No | List products (supports `?category=` and `?search=`) |
-| `GET` | `/api/products/:id` | No | Get a single product |
-| `POST` | `/api/products` | JWT + Admin | Create a product |
-| `PUT` | `/api/products/:id` | JWT + Admin | Update a product |
+| `GET` | `/api/products` | No | List products (supports `?category=` and `?search=` query params) |
+| `GET` | `/api/products/:id` | No | Get a single product by ID |
+| `POST` | `/api/products` | JWT + Admin | Create a new product |
+| `PUT` | `/api/products/:id` | JWT + Admin | Update an existing product |
 | `DELETE` | `/api/products/:id` | JWT + Admin | Delete a product |
 
 ### Categories
@@ -216,7 +245,7 @@ REACT/
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/api/orders` | JWT | Place an order (validates stock) |
+| `POST` | `/api/orders` | JWT | Place an order (validates stock availability) |
 | `GET` | `/api/orders/my` | JWT | Get current user's order history |
 
 ### Admin — User Management
@@ -224,8 +253,8 @@ REACT/
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `GET` | `/api/admin/users` | JWT + Admin | List all users |
-| `PUT` | `/api/admin/users/:id/toggle` | JWT + Admin | Toggle user active status |
-| `DELETE` | `/api/admin/users/:id` | JWT + Admin | Delete a user |
+| `PUT` | `/api/admin/users/:id/toggle` | JWT + Admin | Toggle user active/inactive status |
+| `DELETE` | `/api/admin/users/:id` | JWT + Admin | Delete a non-admin user |
 
 ---
 
@@ -238,6 +267,7 @@ REACT/
 - **Admin routes** redirect non-admin users to `/`
 - **Backend middleware** validates JWT and checks `role === "admin"` on protected endpoints
 - Admin accounts cannot be deactivated or deleted by other admins
+- Passwords are hashed using Werkzeug's `generate_password_hash` before storage
 
 ---
 
@@ -248,7 +278,7 @@ Home (browse, search, filter products)
   -> Product Detail (view details, choose quantity)
     -> Add to Cart
       -> Cart Page (review items, adjust quantities)
-        -> Checkout (place order with stock validation)
+        -> Checkout (place order with backend stock validation)
           -> Order Confirmation
 ```
 
@@ -258,16 +288,16 @@ Home (browse, search, filter products)
 Admin Dashboard (view all products in table)
   -> Add Product / Edit Product / Delete Product
 
-Admin User Management (view all users with stats)
+Admin User Management (view all users with statistics)
   -> Toggle active status / Delete user
 ```
 
-## Cart Flow
+## Cart & Order Flow
 
 ```
 Add to Cart -> Stored in localStorage via CartContext
 Adjust Quantity -> Updates in-memory state -> Synced to localStorage
-Checkout -> Cart items sent to backend -> Stock validated -> Order created -> Cart cleared
+Checkout -> Cart items sent to backend API -> Stock validated server-side -> Order created -> Cart cleared
 ```
 
 ---
@@ -340,7 +370,7 @@ Navigate to **`http://localhost:5173`**.
 |----------|-------------|---------|
 | `VITE_API_URL` | Backend API base URL | `http://localhost:5000/api` |
 
-A `.env` file is used for local development. For production, `.env.production` points to the deployed backend.
+A `.env` file is used for local development. For production, `.env.production` points to the deployed backend on Render.
 
 ### Backend
 
@@ -349,9 +379,9 @@ The Flask app reads these from the environment:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server port | `5000` |
-| `JWT_SECRET_KEY` | Secret for signing JWT tokens | `super-secret-change-me` (dev only) |
+| `JWT_SECRET_KEY` | Secret for signing JWT tokens | `<dev-only-fallback>` |
 
-> **Note:** On Render, `JWT_SECRET_KEY` is auto-generated via the `render.yaml` configuration. Never commit real secret values to the repository.
+> **Note:** On Render, `JWT_SECRET_KEY` is auto-generated via the `render.yaml` configuration. For production, always set a secure secret through your deployment platform. Never commit real secret values to the repository.
 
 ---
 
@@ -370,16 +400,10 @@ Automatic via GitHub Actions. Every push to `main` triggers:
 
 Auto-deploys via `render.yaml`:
 
-1. Installs Python dependencies
+1. Installs Python dependencies from `requirements.txt`
 2. Starts with `gunicorn app:app`
 3. Health check configured at `/`
 4. `JWT_SECRET_KEY` is auto-generated in the Render dashboard
-
-### Manual Deployment (PowerShell)
-
-```powershell
-.\deploy.ps1 -BackendUrl "https://your-backend.onrender.com"
-```
 
 ---
 
