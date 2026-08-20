@@ -1,6 +1,6 @@
-# GrocerApp — Blinkit Clone
+# GrocerApp
 
-A full-stack grocery delivery web application inspired by Blinkit. Built with React (Vite) on the frontend and Python Flask on the backend, with JWT-based authentication, role-based access control, product management, shopping cart, and order placement.
+A full-stack grocery delivery web application inspired by Blinkit. Built with React (Vite) on the frontend and Python Flask on the backend, featuring JWT-based authentication, role-based access control, product management, shopping cart, and order placement.
 
 ---
 
@@ -16,23 +16,28 @@ A full-stack grocery delivery web application inspired by Blinkit. Built with Re
 ## Features
 
 ### Customer
-- Browse products with category filtering and live search
-- View detailed product pages with stock info
-- Add items to cart, adjust quantities, remove items
-- Place orders with real-time stock validation
+
+- Browse products with category filtering and live search (debounced)
+- View detailed product pages with stock information
+- Add items to cart with adjustable quantities (capped to available stock)
+- Place orders with real-time stock validation on the backend
 - Secure sign-in / sign-up with JWT authentication
+- Responsive design for desktop, tablet, and mobile
 
 ### Admin
+
 - Dashboard to view, add, edit, and delete products
-- User management panel — view all users, toggle active/inactive status, delete accounts
+- User management panel with statistics (total, active, inactive users)
+- Toggle user active/inactive status and delete non-admin accounts
 - Role-based access control (admin-only routes)
 
 ### General
-- Fully responsive design (desktop, tablet, mobile)
-- Sticky navbar with hamburger menu on mobile
+
+- Fully responsive design with sticky navbar and hamburger menu on mobile
 - Cart badge showing item count
 - Persistent cart and auth state via localStorage
 - Environment-aware routing (dev vs. production base path)
+- Health check endpoints for deployment monitoring
 
 ---
 
@@ -109,8 +114,8 @@ REACT/
 │       │   ├── CartItem.jsx         # Cart line item
 │       │   └── CategoryFilter.jsx   # Category pill buttons
 │       └── pages/
-│           ├── Home.jsx             # Product listing
-│           ├── ProductDetail.jsx    # Single product view
+│           ├── Home.jsx             # Product listing with search & filters
+│           ├── ProductDetail.jsx    # Single product view + add to cart
 │           ├── Signin.jsx           # Login form
 │           ├── Signup.jsx           # Registration form
 │           ├── Cart.jsx             # Cart & checkout
@@ -118,7 +123,7 @@ REACT/
 │               ├── Dashboard.jsx    # Admin product table
 │               ├── AddProduct.jsx   # Add product form
 │               ├── EditProduct.jsx  # Edit product form
-│               └── UserManagement.jsx
+│               └── UserManagement.jsx # User management panel
 ├── deploy.ps1                      # Manual deploy script
 ├── render.yaml                     # Render deployment config
 └── README.md
@@ -158,7 +163,7 @@ REACT/
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | Integer | Primary key |
-| `user_id` | Integer | Foreign key → `users.id` |
+| `user_id` | Integer | Foreign key to `users.id` |
 | `total_amount` | Float | Not null |
 | `status` | String(20) | Default `"pending"` |
 | `created_at` | DateTime | Auto-set on creation |
@@ -168,14 +173,21 @@ REACT/
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | Integer | Primary key |
-| `order_id` | Integer | Foreign key → `orders.id` |
-| `product_id` | Integer | Foreign key → `products.id` |
+| `order_id` | Integer | Foreign key to `orders.id` |
+| `product_id` | Integer | Foreign key to `products.id` |
 | `quantity` | Integer | Not null |
 | `price` | Float | Price at time of order |
 
 ---
 
 ## API Endpoints
+
+### Health Check
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | No | Backend health check |
+| `GET` | `/api` | No | API status and available endpoints |
 
 ### Authentication
 
@@ -217,6 +229,49 @@ REACT/
 
 ---
 
+## Authentication & Authorization
+
+- **JWT tokens** are issued on successful sign-in and stored in `localStorage`
+- The Axios interceptor automatically attaches the `Authorization: Bearer <token>` header to all API requests
+- Tokens expire after **24 hours**
+- **Protected routes** on the frontend redirect unauthenticated users to `/signin`
+- **Admin routes** redirect non-admin users to `/`
+- **Backend middleware** validates JWT and checks `role === "admin"` on protected endpoints
+- Admin accounts cannot be deactivated or deleted by other admins
+
+---
+
+## User Flow
+
+```
+Home (browse, search, filter products)
+  -> Product Detail (view details, choose quantity)
+    -> Add to Cart
+      -> Cart Page (review items, adjust quantities)
+        -> Checkout (place order with stock validation)
+          -> Order Confirmation
+```
+
+## Admin Flow
+
+```
+Admin Dashboard (view all products in table)
+  -> Add Product / Edit Product / Delete Product
+
+Admin User Management (view all users with stats)
+  -> Toggle active status / Delete user
+```
+
+## Cart Flow
+
+```
+Add to Cart -> Stored in localStorage via CartContext
+Adjust Quantity -> Updates in-memory state -> Synced to localStorage
+Checkout -> Cart items sent to backend -> Stock validated -> Order created -> Cart cleared
+```
+
+---
+
 ## Getting Started
 
 ### Prerequisites
@@ -239,6 +294,8 @@ cd backend
 
 # Create a virtual environment (recommended)
 python -m venv venv
+
+# Activate the virtual environment
 # Windows
 venv\Scripts\activate
 # macOS/Linux
@@ -283,65 +340,18 @@ Navigate to **`http://localhost:5173`**.
 |----------|-------------|---------|
 | `VITE_API_URL` | Backend API base URL | `http://localhost:5000/api` |
 
-A `.env` file is automatically created for local development. For production, `.env.production` points to the Render backend.
+A `.env` file is used for local development. For production, `.env.production` points to the deployed backend.
 
 ### Backend
 
-The Flask app reads these from the environment (set in Render dashboard):
+The Flask app reads these from the environment:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `PORT` | Server port | `5000` |
 | `JWT_SECRET_KEY` | Secret for signing JWT tokens | `super-secret-change-me` (dev only) |
 
----
-
-## Default Users (Seeded)
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `devesh@blinkit.com` | `devesh123` |
-| User | `rahul@test.com` | `rahul123` |
-
----
-
-## How It Works
-
-### User Flow
-
-```
-Home (browse/search/filter products)
-  → Product Detail (view details, choose quantity)
-    → Add to Cart
-      → Cart Page (review items, adjust quantities)
-        → Checkout (place order)
-          → Order Confirmation
-```
-
-### Admin Flow
-
-```
-Admin Dashboard (view all products)
-  → Add Product / Edit Product / Delete Product
-Admin User Management
-  → View all users / Toggle active status / Delete user
-```
-
-### Authentication Flow
-
-```
-Sign Up → Redirect to Sign In
-Sign In → JWT stored in localStorage → Attached to all API requests via Axios interceptor
-Logout → Clear localStorage → Redirect to Sign In
-```
-
-### Cart Flow
-
-```
-Add to Cart → Stored in localStorage via CartContext
-Adjust Quantity → Updates in-memory state → Synced to localStorage
-Checkout → Cart items sent to backend → Stock validated → Order created → Cart cleared
-```
+> **Note:** On Render, `JWT_SECRET_KEY` is auto-generated via the `render.yaml` configuration. Never commit real secret values to the repository.
 
 ---
 
@@ -362,7 +372,8 @@ Auto-deploys via `render.yaml`:
 
 1. Installs Python dependencies
 2. Starts with `gunicorn app:app`
-3. `JWT_SECRET_KEY` is auto-generated in the Render dashboard
+3. Health check configured at `/`
+4. `JWT_SECRET_KEY` is auto-generated in the Render dashboard
 
 ### Manual Deployment (PowerShell)
 
@@ -395,20 +406,18 @@ Auto-deploys via `render.yaml`:
 
 ## Future Improvements
 
-- [ ] Order history page for customers
-- [ ] Payment gateway integration (Stripe/Razorpay)
-- [ ] Product image upload instead of URL input
-- [ ] Pagination for product listings
-- [ ] Email notifications for order confirmation
-- [ ] Admin analytics dashboard with sales charts
-- [ ] Product reviews and ratings
-- [ ] Inventory alerts when stock is low
-- [ ] Migrate from SQLite to PostgreSQL for production
-- [ ] Add rate limiting on authentication endpoints
+- Order history page for customers
+- Payment gateway integration (Stripe/Razorpay)
+- Product image upload instead of URL input
+- Pagination for product listings
+- Email notifications for order confirmation
+- Admin analytics dashboard with sales charts
+- Product reviews and ratings
+- Inventory alerts when stock is low
+- Migrate from SQLite to PostgreSQL for production
+- Rate limiting on authentication endpoints
 
 ---
-
-
 
 ## Author
 
