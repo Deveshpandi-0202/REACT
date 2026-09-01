@@ -13,6 +13,106 @@ A full-stack grocery delivery web application inspired by Blinkit. Built with Re
 
 ---
 
+## Run with Docker (Client Delivery)
+
+The GrocerApp ships as two Docker images that run together with Docker Compose. The frontend (Nginx) serves the built React app and reverse-proxies all `/api` requests to the backend (Gunicorn + Flask), which stores its data in a shared SQLite volume.
+
+**Docker Hub images:**
+
+| Component | Image |
+|-----------|-------|
+| Frontend | `deveshpandi0202/grocerapp-frontend:latest` |
+| Backend | `deveshpandi0202/grocerapp-backend:latest` |
+
+### Prerequisites
+
+- **Docker Desktop** — install from <https://www.docker.com/products/docker-desktop/> (includes the `docker compose` plugin). Start Docker Desktop before continuing.
+- **Git** — only required for Option B (cloning the repository).
+
+### Option A — Pull and run the images directly (no source code needed)
+
+```bash
+docker pull deveshpandi0202/grocerapp-frontend:latest
+docker pull deveshpandi0202/grocerapp-backend:latest
+```
+
+> Note: `docker compose up -d` will automatically pull images if you have the `docker-compose.yml`, so Option A is mainly for verifying that the images download successfully.
+
+### Option B — Recommended: clone the repository and run with Compose
+
+```bash
+git clone https://github.com/Deveshpandi-0202/REACT.git
+cd REACT
+
+# Pull the Docker images from Docker Hub
+docker compose pull
+
+# Start the application in the background
+docker compose up -d
+```
+
+### Open the app in your browser
+
+After the containers start, open:
+
+```
+http://localhost:8080
+```
+
+That is the **only URL you need** — the frontend automatically proxies all `/api` requests to the backend, so the entire app works from this single address.
+
+### Check that the containers are running
+
+```bash
+docker compose ps
+```
+
+You should see two containers (`grocerapp-backend` and `grocerapp-frontend`) with status `Up`.
+
+### View the logs
+
+```bash
+docker compose logs          # all services
+docker compose logs frontend # frontend only
+docker compose logs backend  # backend only
+```
+
+Add `-f` to stream live: `docker compose logs -f`.
+
+### Stop the application
+
+```bash
+docker compose down
+```
+
+This stops and removes the containers but **keeps your data** (the database volume).
+
+### Restart the application
+
+```bash
+docker compose restart
+```
+
+### How the ports work
+
+| Layer | Inside Docker | On your computer |
+|-------|---------------|------------------|
+| Frontend (Nginx) | `:80` | `http://localhost:8080` |
+| Backend (Gunicorn + Flask) | `:5000` (internal only) | accessed through the frontend at `/api` |
+
+The backend is not exposed directly to your computer; the frontend's Nginx proxies `/api` to it internally. If you need a direct backend URL (for API testing), run `docker compose exec backend curl http://localhost:5000/api` from inside the container.
+
+### How SQLite database persistence works
+
+- The backend uses a **SQLite database** (`blinkit.db`) stored inside a named Docker volume (`backend-data`), mounted at `/app/data`.
+- Because the data lives in the volume, **your products, users, and orders survive container restarts and `docker compose down`**.
+- On the very first start, the app automatically creates the tables and seeds sample products and demo accounts.
+- To start completely fresh (delete the database), run: `docker compose down -v` — **use this only if you want to wipe all data**.
+
+> **JWT secret:** the compose file uses a development default secret. For a real deployment you can set `JWT_SECRET_KEY` in a `.env` file in the project root; Compose reads it automatically. Do not commit real secret values to the repository.
+
+---
+
 ## Features
 
 ### Customer

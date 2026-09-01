@@ -1,0 +1,34 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: grocerapp-backend:latest
+    container_name: grocerapp-backend
+    restart: unless-stopped
+    environment:
+      - PORT=5000
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
+      - SQLALCHEMY_DATABASE_URI=sqlite:////app/data/blinkit.db
+    volumes:
+      - backend-data:/app/data
+    expose:
+      - "5000"
+
+  frontend:
+    build:
+      context: ./my-react-app
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=/api
+        - VITE_BASE_PATH=/
+    image: grocerapp-frontend:latest
+    container_name: grocerapp-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  backend-data:
