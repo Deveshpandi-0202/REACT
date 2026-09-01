@@ -111,10 +111,10 @@ docker compose -f docker-compose.pull.yml down
 
 **Login credentials (seeded automatically):**
 
-| Role  | Email              | Password   |
-|-------|--------------------|------------|
-| Admin | `admin@grocerapp.com` | `admin123` |
-| User  | `rahul@test.com`   | `rahul123` |
+| Role  | Login             | Password           |
+|-------|-------------------|--------------------|
+| Admin | `admin123`        | `admin123@gmail.com` |
+| User  | `rahul@test.com`  | `rahul123`         |
 
 ---
 

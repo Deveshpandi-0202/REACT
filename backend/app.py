@@ -343,10 +343,13 @@ def delete_user(user_id):
 # ── Init ──────────────────────────────────────────────────────────────────────
 
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+    except Exception:
+        db.session.rollback()
     from werkzeug.security import generate_password_hash
     seed_users = [
-        {"name": "Admin", "email": "admin@grocerapp.com", "password": "admin123", "role": "admin"},
+        {"name": "Admin", "email": "admin123", "password": "admin123@gmail.com", "role": "admin"},
         {"name": "Rahul", "email": "rahul@test.com", "password": "rahul123", "role": "user"},
     ]
     for su in seed_users:
