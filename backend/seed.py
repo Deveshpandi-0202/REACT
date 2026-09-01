@@ -40,8 +40,8 @@ def seed():
 
         admin = User(
             name="Admin",
-            email="devesh@blinkit.com",
-            password=generate_password_hash("devesh123"),
+            email="admin@grocerapp.com",
+            password=generate_password_hash("admin123"),
             role="admin",
         )
         user = User(
@@ -52,7 +52,7 @@ def seed():
         )
         db.session.add_all([admin, user])
         db.session.commit()
-        print("Created admin (devesh@blinkit.com / devesh123) and user (rahul@test.com / rahul123)")
+        print("Created admin (admin@grocerapp.com / admin123) and user (rahul@test.com / rahul123)")
 
         for p in products:
             db.session.add(Product(**p))

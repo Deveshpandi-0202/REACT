@@ -1,9 +1,9 @@
+# Quick start for clients - pulls pre-built images from Docker Hub
+# Usage:  docker compose -f docker-compose.pull.yml up -d
+# Then open:  http://localhost:8080
 services:
   backend:
     image: deveshpandi0202/grocerapp-backend:latest
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
     container_name: grocerapp-backend
     restart: unless-stopped
     environment:
@@ -17,12 +17,6 @@ services:
 
   frontend:
     image: deveshpandi0202/grocerapp-frontend:latest
-    build:
-      context: ./my-react-app
-      dockerfile: Dockerfile
-      args:
-        - VITE_API_URL=/api
-        - VITE_BASE_PATH=/
     container_name: grocerapp-frontend
     restart: unless-stopped
     depends_on:

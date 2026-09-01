@@ -41,6 +41,22 @@ SQLite database (persistent volume: backend-data)
 | `my-react-app/nginx.conf` | Serves the SPA + proxies `/api` to backend |
 | `my-react-app/.dockerignore` | Excludes `node_modules`, `dist`, `.env` from the image |
 | `docker-compose.yml` | Orchestrates both services + persistent DB volume |
+| `docker-compose.pull.yml` | **Quick start** – pulls pre-built images from Docker Hub |
+| `.env.example` | Template for environment variables |
+
+---
+
+## Images on Docker Hub
+
+Both images are published to **Docker Hub** under `deveshpandi0202`:
+
+| Image | Docker Hub URL |
+|-------|----------------|
+| `deveshpandi0202/grocerapp-backend:latest` | https://hub.docker.com/r/deveshpandi0202/grocerapp-backend |
+| `deveshpandi0202/grocerapp-frontend:latest` | https://hub.docker.com/r/deveshpandi0202/grocerapp-frontend |
+
+Clients do **not** need Node, Python, or the source code — they only need
+Docker. See the Quick Start below.
 
 Small code changes to support Docker:
 
@@ -58,9 +74,54 @@ Small code changes to support Docker:
 
 ---
 
-## Run the App with Docker Compose
+## Quick Start for Clients (no source code needed)
 
-From the **project root** (`REACT/`):
+A client only needs **Docker Desktop**. They don't need Node, Python, Git or the
+source code. The pre-built images are pulled automatically from Docker Hub.
+
+**Step 1 — Install Docker Desktop** from <https://www.docker.com/products/docker-desktop/>
+
+**Step 2 — Download just these two files** from the GitHub repo
+(`REACT` repo → `docker-compose.pull.yml` and `.env.example`):
+
+- `docker-compose.pull.yml`
+- `.env.example`
+
+Or clone the whole repo (optional):
+
+```bash
+git clone https://github.com/deveshpandi-0202/REACT.git
+cd REACT
+```
+
+**Step 3 — Run** (from the folder that contains `docker-compose.pull.yml`):
+
+```bash
+docker compose -f docker-compose.pull.yml up -d
+```
+
+That command downloads both images from Docker Hub and starts the app.
+Then open your browser at **http://localhost:8080** 🎉
+
+**To stop:**
+
+```bash
+docker compose -f docker-compose.pull.yml down
+```
+
+**Login credentials (seeded automatically):**
+
+| Role  | Email              | Password   |
+|-------|--------------------|------------|
+| Admin | `admin@grocerapp.com` | `admin123` |
+| User  | `rahul@test.com`   | `rahul123` |
+
+---
+
+## Run the App with Docker Compose (build from source)
+
+If you cloned the repo and want to build the images yourself instead of pulling
+them, run from the **project root** (`REACT/`):
 
 ```powershell
 docker compose up --build
@@ -100,8 +161,8 @@ Required tools:
 ### JWT Secret
 
 It is read from the `JWT_SECRET_KEY` environment variable. In `docker-compose.yml`
-the default is `change-me-in-production`. For real deployments, set it via a
-`.env` file in the project root:
+the default is `grocerapp-jwt-secret-key-change-in-production-2024`. For real
+deployments, set it via a `.env` file in the project root:
 
 ```bash
 JWT_SECRET_KEY=your-strong-random-secret-here

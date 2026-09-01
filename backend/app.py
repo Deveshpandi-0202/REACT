@@ -20,10 +20,10 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
     "sqlite:///" + os.path.join(basedir, "blinkit.db"),
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "super-secret-change-me")
+app.config["JWT_SECRET_KEY"] = os.environ.get("JWT_SECRET_KEY", "grocerapp-jwt-secret-key-change-in-production-2024")
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 
-CORS(app, origins=["http://localhost:5173", "https://deveshpandi-0202.github.io", "https://blinkit-backend-mg62.onrender.com"])
+CORS(app, origins=["http://localhost:5173", "http://localhost:8080", "https://deveshpandi-0202.github.io", "https://blinkit-backend-mg62.onrender.com"])
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
 
@@ -344,43 +344,48 @@ def delete_user(user_id):
 
 with app.app_context():
     db.create_all()
-    if User.query.first() is None:
-        from werkzeug.security import generate_password_hash
-        admin = User(
-            name="Admin",
-            email="devesh@blinkit.com",
-            password=generate_password_hash("devesh123"),
-            role="admin",
-        )
-        user = User(
-            name="Rahul",
-            email="rahul@test.com",
-            password=generate_password_hash("rahul123"),
-            role="user",
-        )
-        db.session.add_all([admin, user])
-        db.session.commit()
-        sample_products = [
-            {"name": "Fresh Apples (1 kg)", "description": "Crisp and juicy red apples", "price": 120.0, "image_url": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=300", "category": "Fruits", "stock": 50},
-            {"name": "Banana (1 dozen)", "description": "Ripe yellow bananas", "price": 40.0, "image_url": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=300", "category": "Fruits", "stock": 100},
-            {"name": "Fresh Oranges (1 kg)", "description": "Sweet navel oranges", "price": 80.0, "image_url": "https://images.unsplash.com/photo-1547514701-42782101795e?w=300", "category": "Fruits", "stock": 60},
-            {"name": "Amul Butter (100g)", "description": "Fresh creamy butter", "price": 50.0, "image_url": "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300", "category": "Dairy", "stock": 80},
-            {"name": "Full Cream Milk (1L)", "description": "Pasteurized full cream milk", "price": 60.0, "image_url": "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=300", "category": "Dairy", "stock": 120},
-            {"name": "Paneer (200g)", "description": "Fresh cottage cheese", "price": 80.0, "image_url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=300", "category": "Dairy", "stock": 40},
-            {"name": "Lays Classic Salted (52g)", "description": "Crispy potato chips", "price": 20.0, "image_url": "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=300", "category": "Snacks", "stock": 200},
-            {"name": "Maggi Noodles (70g)", "description": "2-minute instant noodles", "price": 14.0, "image_url": "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=300", "category": "Snacks", "stock": 150},
-            {"name": "Oreo Biscuits (120g)", "description": "Chocolate sandwich biscuits", "price": 30.0, "image_url": "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=300", "category": "Snacks", "stock": 100},
-            {"name": "Coca-Cola (300ml)", "description": "Chilled cola drink", "price": 20.0, "image_url": "https://images.unsplash.com/photo-1554866585-cd94860890b7?w=300", "category": "Beverages", "stock": 200},
-            {"name": "Tropicana Juice (1L)", "description": "Fresh orange juice", "price": 99.0, "image_url": "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=300", "category": "Beverages", "stock": 50},
-            {"name": "Tomato (1 kg)", "description": "Fresh ripe tomatoes", "price": 40.0, "image_url": "https://images.unsplash.com/photo-1546470427-0d4db154ceb8?w=300", "category": "Vegetables", "stock": 80},
-            {"name": "Onion (1 kg)", "description": "Fresh red onions", "price": 35.0, "image_url": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=300", "category": "Vegetables", "stock": 90},
-            {"name": "Potato (1 kg)", "description": "Fresh potatoes", "price": 30.0, "image_url": "https://images.unsplash.com/photo-1518977676601-b53f82ber40?w=300", "category": "Vegetables", "stock": 100},
-            {"name": "Surf Excel (500g)", "description": "Detergent powder", "price": 55.0, "image_url": "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=300", "category": "Household", "stock": 60},
-            {"name": "Vim Dishwash Liquid (500ml)", "description": "Lemon dishwashing liquid", "price": 99.0, "image_url": "https://images.unsplash.com/photo-1585421514284-efb74c2b69ba?w=300", "category": "Household", "stock": 45},
-        ]
-        for p in sample_products:
-            db.session.add(Product(**p))
-        db.session.commit()
+    from werkzeug.security import generate_password_hash
+    seed_users = [
+        {"name": "Admin", "email": "admin@grocerapp.com", "password": "admin123", "role": "admin"},
+        {"name": "Rahul", "email": "rahul@test.com", "password": "rahul123", "role": "user"},
+    ]
+    for su in seed_users:
+        if not User.query.filter_by(email=su["email"]).first():
+            try:
+                db.session.add(User(
+                    name=su["name"],
+                    email=su["email"],
+                    password=generate_password_hash(su["password"]),
+                    role=su["role"],
+                ))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+    if Product.query.first() is None:
+            sample_products = [
+                {"name": "Fresh Apples (1 kg)", "description": "Crisp and juicy red apples", "price": 120.0, "image_url": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=300", "category": "Fruits", "stock": 50},
+                {"name": "Banana (1 dozen)", "description": "Ripe yellow bananas", "price": 40.0, "image_url": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=300", "category": "Fruits", "stock": 100},
+                {"name": "Fresh Oranges (1 kg)", "description": "Sweet navel oranges", "price": 80.0, "image_url": "https://images.unsplash.com/photo-1547514701-42782101795e?w=300", "category": "Fruits", "stock": 60},
+                {"name": "Amul Butter (100g)", "description": "Fresh creamy butter", "price": 50.0, "image_url": "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300", "category": "Dairy", "stock": 80},
+                {"name": "Full Cream Milk (1L)", "description": "Pasteurized full cream milk", "price": 60.0, "image_url": "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=300", "category": "Dairy", "stock": 120},
+                {"name": "Paneer (200g)", "description": "Fresh cottage cheese", "price": 80.0, "image_url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=300", "category": "Dairy", "stock": 40},
+                {"name": "Lays Classic Salted (52g)", "description": "Crispy potato chips", "price": 20.0, "image_url": "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=300", "category": "Snacks", "stock": 200},
+                {"name": "Maggi Noodles (70g)", "description": "2-minute instant noodles", "price": 14.0, "image_url": "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=300", "category": "Snacks", "stock": 150},
+                {"name": "Oreo Biscuits (120g)", "description": "Chocolate sandwich biscuits", "price": 30.0, "image_url": "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=300", "category": "Snacks", "stock": 100},
+                {"name": "Coca-Cola (300ml)", "description": "Chilled cola drink", "price": 20.0, "image_url": "https://images.unsplash.com/photo-1554866585-cd94860890b7?w=300", "category": "Beverages", "stock": 200},
+                {"name": "Tropicana Juice (1L)", "description": "Fresh orange juice", "price": 99.0, "image_url": "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=300", "category": "Beverages", "stock": 50},
+                {"name": "Tomato (1 kg)", "description": "Fresh ripe tomatoes", "price": 40.0, "image_url": "https://images.unsplash.com/photo-1546470427-0d4db154ceb8?w=300", "category": "Vegetables", "stock": 80},
+                {"name": "Onion (1 kg)", "description": "Fresh red onions", "price": 35.0, "image_url": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=300", "category": "Vegetables", "stock": 90},
+                {"name": "Potato (1 kg)", "description": "Fresh potatoes", "price": 30.0, "image_url": "https://images.unsplash.com/photo-1518977676601-b53f82ber40?w=300", "category": "Vegetables", "stock": 100},
+                {"name": "Surf Excel (500g)", "description": "Detergent powder", "price": 55.0, "image_url": "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=300", "category": "Household", "stock": 60},
+                {"name": "Vim Dishwash Liquid (500ml)", "description": "Lemon dishwashing liquid", "price": 99.0, "image_url": "https://images.unsplash.com/photo-1585421514284-efb74c2b69ba?w=300", "category": "Household", "stock": 45},
+            ]
+            for p in sample_products:
+                db.session.add(Product(**p))
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
