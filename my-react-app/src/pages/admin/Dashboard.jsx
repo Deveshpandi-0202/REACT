@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Users, Package, ShoppingBag, IndianRupee, Plus, AlertTriangle,
-  Pencil, Trash2, LayoutDashboard, Loader2,
+  Pencil, Trash2, LayoutDashboard, Loader2, Search, X,
 } from "lucide-react";
 import api from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
   const toast = useToast();
 
   useEffect(() => {
@@ -57,6 +58,15 @@ export default function Dashboard() {
   if (error) return <div className="error-msg">{error}</div>;
 
   const maxCat = Math.max(1, ...(stats.by_category || []).map((c) => c.count));
+
+  const q = query.trim().toLowerCase();
+  const filteredProducts = q
+    ? stats.products.filter((p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q) ||
+        String(p.id).includes(q)
+      )
+    : stats.products;
 
   const statCards = [
     { label: "Total Users", value: stats.total_users, icon: <Users size={22} />, cls: "blue" },
@@ -156,7 +166,30 @@ export default function Dashboard() {
 
       <div className="dash-panel">
         <h3 className="dash-panel-title">All Products</h3>
+        <div className="admin-search-row">
+          <div className="admin-search">
+            <Search size={16} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search by name, category or ID…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              autoComplete="off"
+            />
+            {query && (
+              <button className="admin-search-clear" onClick={() => setQuery("")} aria-label="Clear search">
+                <X size={15} />
+              </button>
+            )}
+          </div>
+          <span className="admin-search-count">
+            Showing {filteredProducts.length} of {stats.products.length}
+          </span>
+        </div>
         <div className="admin-table-wrap">
+          {filteredProducts.length === 0 ? (
+            <p className="dash-empty">No products match &ldquo;{query}&rdquo;</p>
+          ) : (
           <table className="admin-table">
             <thead>
               <tr>
@@ -169,7 +202,7 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {stats.products.map((p) => (
+              {filteredProducts.map((p) => (
                 <tr key={p.id}>
                   <td>{p.id}</td>
                   <td>{p.name}</td>
@@ -179,7 +212,7 @@ export default function Dashboard() {
                     <span className={`stock-flag ${p.stock <= 10 ? "low" : "ok"}`}>{p.stock}</span>
                   </td>
                   <td className="admin-actions">
-                    <Link to={`/admin/edit/${p.id}`} className="btn btn-sm">
+                    <Link to={`/admin/edit/${p.id}`} className="btn btn-sm btn-primary">
                       <Pencil size={13} /> Edit
                     </Link>
                     <button
@@ -193,6 +226,7 @@ export default function Dashboard() {
               ))}
             </tbody>
           </table>
+          )}
         </div>
       </div>
     </div>

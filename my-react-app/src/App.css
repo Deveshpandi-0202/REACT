@@ -1788,6 +1788,71 @@ a:hover {
 .admin-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+
+.admin-search-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 16px;
+  flex-wrap: wrap;
+}
+
+.admin-search {
+  position: relative;
+  flex: 1 1 240px;
+  max-width: 400px;
+}
+
+.admin-search input {
+  width: 100%;
+  padding: 10px 36px 10px 38px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.admin-search input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(23, 74, 55, 0.12);
+}
+
+.admin-search .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-light);
+  pointer-events: none;
+}
+
+.admin-search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+  padding: 2px;
+  line-height: 1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+}
+
+.admin-search-clear:hover { color: var(--error); }
+
+.admin-search-count {
+  font-size: 13px;
+  color: var(--text-light);
+  white-space: nowrap;
 }
 
 .stock-flag {
@@ -2363,5 +2428,14 @@ a:hover {
 
   .admin-table {
     min-width: 480px;
+  }
+
+  .admin-search-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-search {
+    max-width: none;
   }
 }
