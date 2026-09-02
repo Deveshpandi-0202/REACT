@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Users, UserCheck, UserX, Loader2, Trash2 } from "lucide-react";
+import { Users, UserCheck, UserX, Loader2, Trash2, Search, X } from "lucide-react";
 import api from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
 
@@ -13,6 +13,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
   const toast = useToast();
 
   useEffect(() => {
@@ -56,6 +57,16 @@ export default function UserManagement() {
   const activeUsers = users.filter((u) => u.is_active).length;
   const inactiveUsers = totalUsers - activeUsers;
 
+  const q = query.trim().toLowerCase();
+  const filteredUsers = q
+    ? users.filter(
+        (u) =>
+          u.name.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q) ||
+          String(u.id).includes(q)
+      )
+    : users;
+
   if (loading) return <div className="loading"><Loader2 size={24} className="spin" /> Loading users...</div>;
 
   const stats = [
@@ -80,7 +91,31 @@ export default function UserManagement() {
         ))}
       </motion.div>
 
+      <div className="admin-search-row">
+        <div className="admin-search">
+          <Search size={16} className="search-icon" />
+          <input
+            type="text"
+            placeholder="Search users by name or email..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoComplete="off"
+          />
+          {query && (
+            <button className="admin-search-clear" onClick={() => setQuery("")} aria-label="Clear search">
+              <X size={15} />
+            </button>
+          )}
+        </div>
+        <span className="admin-search-count">
+          Showing {filteredUsers.length} of {totalUsers}
+        </span>
+      </div>
+
       <div className="admin-table-wrap">
+        {filteredUsers.length === 0 ? (
+          <p className="dash-empty">No users found</p>
+        ) : (
         <table className="admin-table">
           <thead>
             <tr>
@@ -94,7 +129,7 @@ export default function UserManagement() {
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
+            {filteredUsers.map((u) => (
               <tr key={u.id}>
                 <td>{u.id}</td>
                 <td>{u.name}</td>
@@ -132,6 +167,7 @@ export default function UserManagement() {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </div>
   );
