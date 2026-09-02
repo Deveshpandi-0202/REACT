@@ -4,6 +4,63 @@ A full-stack grocery delivery web application inspired by Blinkit. Built with Re
 
 ---
 
+## Project Links
+
+| Resource                     | Link                                                                             |
+| ---------------------------- | -------------------------------------------------------------------------------- |
+| 🌐 Live Frontend Application | [Open Frontend](https://deveshpandi-0202.github.io/REACT/)                       |
+| 🔧 Live Backend API          | [Open Backend API](https://blinkit-backend-mg62.onrender.com/api)                |
+| 📦 GitHub Repository         | [View GitHub](https://github.com/Deveshpandi-0202/REACT)                         |
+| 🐳 Docker Frontend Image     | [View Docker Image](https://hub.docker.com/r/deveshpandi0202/grocerapp-frontend) |
+| 🐳 Docker Backend Image      | [View Docker Image](https://hub.docker.com/r/deveshpandi0202/grocerapp-backend)  |
+
+---
+
+## Run the Complete Project with Docker
+
+Run the application locally using the pre-built Docker images from Docker Hub. No manual building required.
+
+### Prerequisites
+
+- **Git** must be installed — [Download Git](https://git-scm.com)
+- **Docker Desktop** must be installed and **running** — [Download Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+### Quick Start
+
+```bash
+git clone https://github.com/Deveshpandi-0202/REACT.git
+cd REACT
+docker compose -f docker-compose.pull.yml pull
+docker compose -f docker-compose.pull.yml up -d
+```
+
+**Application:** [http://localhost:8080](http://localhost:8080)
+
+### What This Does
+
+- `docker-compose.pull.yml` pulls the pre-built frontend and backend images from Docker Hub
+- The **frontend** (Nginx) serves the React app on **port 8080**
+- The **backend** (Gunicorn + Flask) runs inside Docker and is accessed by the frontend through the Nginx API proxy — it is not exposed directly
+- On the very first start, the backend automatically creates the database and seeds sample products and demo accounts
+- The **public Render backend API** is available separately at the [Live Backend API](https://blinkit-backend-mg62.onrender.com/api) link above
+
+### Update to Latest Version
+
+```bash
+docker compose -f docker-compose.pull.yml pull
+docker compose -f docker-compose.pull.yml up -d
+```
+
+This pulls the newest images from Docker Hub and restarts the containers. Your data is preserved.
+
+### Stop the Application
+
+```bash
+docker compose -f docker-compose.pull.yml down
+```
+
+---
+
 ## Project Overview
 
 GrocerApp is a multi-role grocery delivery platform that supports three user types: **Customer**, **Admin**, and **Driver**. Customers browse and order groceries, admins manage products/users/drivers and assign deliveries, and drivers handle the last-mile delivery workflow. The application ships as pre-built Docker images and can be started with a single command.
@@ -593,13 +650,6 @@ REACT/
 
 ---
 
-## GitHub Repository
+## Links
 
-[https://github.com/Deveshpandi-0202/REACT](https://github.com/Deveshpandi-0202/REACT)
-
-## Docker Hub
-
-| Component | Link |
-|-----------|------|
-| Frontend Image | [https://hub.docker.com/r/deveshpandi0202/grocerapp-frontend](https://hub.docker.com/r/deveshpandi0202/grocerapp-frontend) |
-| Backend Image | [https://hub.docker.com/r/deveshpandi0202/grocerapp-backend](https://hub.docker.com/r/deveshpandi0202/grocerapp-backend) |
+All project links are available in the [Project Links](#project-links) section at the top of this document.
