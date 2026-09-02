@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirecting to GrocerApp...</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #f6f8fb;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        text-align: center;
+      }
+      .box { padding: 24px; }
+      h1 { font-size: 22px; margin-bottom: 8px; }
+      p { color: #5b6b7f; font-size: 14px; }
+      a { color: #10b981; font-weight: 600; }
+    </style>
+    <script>
+      // GitHub Pages SPA fix: preserve the requested route and load the app
+      // from index.html so a hard refresh on a deep link does not show 404.
+      (function () {
+        try {
+          sessionStorage.setItem("gh-pages-redirect", location.pathname + location.search + location.hash);
+        } catch (e) {
+          /* sessionStorage unavailable - ignore */
+        }
+        var base = "/REACT/";
+        location.replace(base);
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="box">
+      <h1>Redirecting to GrocerApp...</h1>
+      <p>If you are not redirected automatically, <a href="/REACT/">click here</a>.</p>
+    </div>
+  </body>
+</html>

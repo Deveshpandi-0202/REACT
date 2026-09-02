@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>grocery-app</title>
+    <script>
+      // Restore the route saved by 404.html after a GitHub Pages SPA refresh,
+      // so deep links do not end up on the homepage after redirecting.
+      (function () {
+        try {
+          var redirect = sessionStorage.getItem("gh-pages-redirect");
+          if (redirect && redirect !== location.pathname + location.search + location.hash) {
+            sessionStorage.removeItem("gh-pages-redirect");
+            history.replaceState(null, "", redirect);
+          }
+        } catch (e) {
+          /* ignore */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
