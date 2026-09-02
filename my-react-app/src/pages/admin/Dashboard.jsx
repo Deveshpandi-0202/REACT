@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Users, Package, ShoppingBag, IndianRupee, Plus, AlertTriangle,
   Pencil, Trash2, LayoutDashboard, Loader2, Search, X, ChevronDown,
+  ListChecks, ArrowDown,
 } from "lucide-react";
 import api from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -22,6 +23,14 @@ export default function Dashboard() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const toast = useToast();
+  const productsRef = useRef(null);
+
+  const scrollToProducts = () => {
+    productsRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -89,9 +98,14 @@ export default function Dashboard() {
     <div className="admin-page">
       <div className="admin-header">
         <h1><LayoutDashboard size={22} /> Admin Dashboard</h1>
-        <Link to="/admin/add" className="btn btn-primary">
-          <Plus size={16} /> Add Product
-        </Link>
+        <div className="admin-header-actions">
+          <button type="button" className="btn btn-outline" onClick={scrollToProducts}>
+            <ListChecks size={16} /> Manage Products <ArrowDown size={14} />
+          </button>
+          <Link to="/admin/add" className="btn btn-primary">
+            <Plus size={16} /> Add Product
+          </Link>
+        </div>
       </div>
 
       <motion.div
@@ -174,8 +188,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="dash-panel">
-        <h3 className="dash-panel-title">All Products</h3>
+      <div className="dash-panel" ref={productsRef}>
+        <h3 className="dash-panel-title">Manage Products</h3>
         <div className="admin-search-row">
           <div className="admin-search">
             <Search size={16} className="search-icon" />

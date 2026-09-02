@@ -16,11 +16,12 @@ RUN mkdir -p /app/data
 RUN useradd --create-home appuser
 RUN chown -R appuser:appuser /app
 
-USER appuser
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 5000
 
 ENV PORT=5000
 ENV SQLALCHEMY_DATABASE_URI=sqlite:////app/data/blinkit.db
 
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "app:app"]
+ENTRYPOINT ["/entrypoint.sh"]
