@@ -1399,6 +1399,12 @@ a:hover {
 .order-status.pending { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
 .order-status.shipped { background: rgba(99, 102, 241, 0.15); color: var(--accent); }
 .order-status.cancelled { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+.order-status.confirmed { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.order-status.preparing { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.order-status.ready_for_pickup { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+.order-status.assigned { background: rgba(99, 102, 241, 0.15); color: var(--accent); }
+.order-status.picked_up { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.order-status.out_for_delivery { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
 
 .order-id {
   font-weight: 700;
@@ -2545,5 +2551,225 @@ a:hover {
 
   .admin-cat-filter select {
     width: 100%;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DRIVER MODULE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.driver-welcome {
+  margin: 0 0 20px;
+  color: var(--text-light);
+  font-size: 15px;
+}
+
+.driver-avail {
+  align-items: center;
+}
+
+.driver-availability {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+}
+
+.driver-availability.available { background: rgba(22, 163, 74, 0.15); color: var(--success); }
+.driver-availability.busy { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+.driver-availability.inactive { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+
+.driver-avail-select {
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 110px;
+}
+
+.driver-order-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px 16px;
+  margin-bottom: 16px;
+}
+
+.driver-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.driver-meta-label {
+  color: var(--text-light);
+  font-size: 13px;
+  min-width: 70px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.driver-total {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.driver-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.driver-actions .btn {
+  padding: 12px 20px;
+  font-size: 15px;
+}
+
+.driver-delivered-note {
+  margin-top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--success);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.assign-driver-row {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.assign-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.assign-select {
+  padding: 9px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--input-bg, var(--card-bg));
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.admin-orders-list .driver-order-meta {
+  margin-bottom: 12px;
+}
+
+/* Delivery progress stepper */
+.delivery-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 18px 0 14px;
+  padding: 14px;
+  border-radius: var(--radius);
+  background: var(--card-bg-2);
+}
+
+.progress-step {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-light);
+  font-weight: 600;
+}
+
+.progress-step.done { color: var(--success); }
+.progress-step.inactive { opacity: 0.5; }
+
+.progress-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  color: var(--text-light);
+}
+
+.progress-step.done .progress-dot {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+
+.progress-step.inactive .progress-dot.o {
+  border-style: dashed;
+}
+
+.progress-label { text-transform: capitalize; }
+
+.customer-delivery-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.customer-delivery-info span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.driver-add-form {
+  margin-bottom: 20px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 12px;
+  max-width: 480px;
+  background: var(--card-bg);
+}
+
+.driver-add-form h3 { margin: 0 0 4px; }
+
+.driver-orders-list .order-card { margin-bottom: 12px; }
+
+@media (max-width: 480px) {
+  .driver-order-meta {
+    grid-template-columns: 1fr;
+  }
+  .assign-driver-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .assign-select {
+    width: 100%;
+  }
+  .delivery-progress {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
   }
 }

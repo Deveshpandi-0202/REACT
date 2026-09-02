@@ -46,7 +46,12 @@ export default function Checkout() {
         product_id: i.id,
         quantity: i.quantity,
       }));
-      await api.post("/orders", { items: orderItems });
+      await api.post("/orders", {
+        items: orderItems,
+        address,
+        city,
+        phone,
+      });
       clearCart();
       setDone(true);
       toast.success("Order placed successfully!");

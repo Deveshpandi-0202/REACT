@@ -15,6 +15,9 @@ import AddProduct from "./pages/admin/AddProduct";
 import Dashboard from "./pages/admin/Dashboard";
 import EditProduct from "./pages/admin/EditProduct";
 import UserManagement from "./pages/admin/UserManagement";
+import DriverManagement from "./pages/admin/DriverManagement";
+import OrdersManagement from "./pages/admin/OrdersManagement";
+import DriverDashboard from "./pages/driver/DriverDashboard";
 import Footer from "./components/Footer";
 import "./App.css";
 
@@ -93,6 +96,30 @@ function App() {
                   element={
                     <ProtectedRoute requiredRole="admin">
                       <UserManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/drivers"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <DriverManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/orders"
+                  element={
+                    <ProtectedRoute requiredRole="admin">
+                      <OrdersManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/driver"
+                  element={
+                    <ProtectedRoute requiredRole="driver">
+                      <DriverDashboard />
                     </ProtectedRoute>
                   }
                 />

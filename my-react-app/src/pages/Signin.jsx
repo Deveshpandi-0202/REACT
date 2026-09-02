@@ -20,7 +20,9 @@ export default function Signin() {
     try {
       const user = await signin(email.trim(), password);
       toast.success(`Welcome back, ${user.name}!`);
-      navigate(user.role === "admin" ? "/admin" : "/");
+      if (user.role === "admin") navigate("/admin");
+      else if (user.role === "driver") navigate("/driver");
+      else navigate("/");
     } catch (err) {
       toast.error(err.response?.data?.error || "Login failed");
     } finally {

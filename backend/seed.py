@@ -50,9 +50,16 @@ def seed():
             password=generate_password_hash("rahul123"),
             role="user",
         )
-        db.session.add_all([admin, user])
+        driver = User(
+            name="Kumar",
+            email="driver@test.com",
+            password=generate_password_hash("driver123"),
+            role="driver",
+            availability="available",
+        )
+        db.session.add_all([admin, user, driver])
         db.session.commit()
-        print("Created admin (admin123 / admin123@gmail.com) and user (rahul@test.com / rahul123)")
+        print("Created admin, user and driver demo accounts")
 
         for p in products:
             db.session.add(Product(**p))

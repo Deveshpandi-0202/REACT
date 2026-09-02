@@ -13,6 +13,8 @@ import {
   Package,
   Users,
   LayoutDashboard,
+  Truck,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
@@ -57,7 +59,7 @@ export default function Navbar() {
             <Home size={16} /> Home
           </Link>
 
-          {user && (
+          {user && user.role === "user" && (
             <>
               <Link to="/cart" className="cart-link" onClick={closeMenu}>
                 <ShoppingCart size={16} /> Cart
@@ -74,10 +76,22 @@ export default function Navbar() {
               <Link to="/admin" onClick={closeMenu}>
                 <LayoutDashboard size={16} /> Dashboard
               </Link>
+              <Link to="/admin/orders" onClick={closeMenu}>
+                <ClipboardList size={16} /> Orders
+              </Link>
               <Link to="/admin/users" onClick={closeMenu}>
                 <Users size={16} /> Users
               </Link>
+              <Link to="/admin/drivers" onClick={closeMenu}>
+                <Truck size={16} /> Drivers
+              </Link>
             </>
+          )}
+
+          {user?.role === "driver" && (
+            <Link to="/driver" onClick={closeMenu}>
+              <Truck size={16} /> Deliveries
+            </Link>
           )}
 
           <div className="navbar-right">
