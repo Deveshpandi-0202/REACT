@@ -96,7 +96,7 @@ export default function UserManagement() {
           <Search size={16} className="search-icon" />
           <input
             type="text"
-            placeholder="Search users by name or email..."
+            placeholder="Search users by name, email or ID..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoComplete="off"
