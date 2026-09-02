@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   Users, Package, ShoppingBag, IndianRupee, Plus, AlertTriangle,
-  Pencil, Trash2, LayoutDashboard, Loader2, Search, X,
+  Pencil, Trash2, LayoutDashboard, Loader2, Search, X, ChevronDown,
 } from "lucide-react";
 import api from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -18,6 +18,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -37,13 +40,16 @@ export default function Dashboard() {
   }, []);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this product?")) return;
+    setDeleting(true);
     try {
       await api.delete(`/products/${id}`);
       setStats((s) => ({ ...s, products: s.products.filter((p) => p.id !== id) }));
       toast.success("Product deleted");
     } catch {
       toast.error("Failed to delete product");
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -60,13 +66,17 @@ export default function Dashboard() {
   const maxCat = Math.max(1, ...(stats.by_category || []).map((c) => c.count));
 
   const q = query.trim().toLowerCase();
-  const filteredProducts = q
-    ? stats.products.filter((p) =>
-        p.name.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q) ||
-        String(p.id).includes(q)
-      )
-    : stats.products;
+  const filteredProducts = stats.products.filter((p) => {
+    const matchesQuery =
+      !q ||
+      p.name.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q) ||
+      String(p.id).includes(q);
+    const matchesCategory = !category || p.category === category;
+    return matchesQuery && matchesCategory;
+  });
+
+  const categories = [...new Set(stats.products.map((p) => p.category))].sort();
 
   const statCards = [
     { label: "Total Users", value: stats.total_users, icon: <Users size={22} />, cls: "blue" },
@@ -171,7 +181,7 @@ export default function Dashboard() {
             <Search size={16} className="search-icon" />
             <input
               type="text"
-              placeholder="Search by name, category or ID…"
+              placeholder="Search products by name, category or ID…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               autoComplete="off"
@@ -181,6 +191,15 @@ export default function Dashboard() {
                 <X size={15} />
               </button>
             )}
+          </div>
+          <div className="admin-cat-filter">
+            <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Filter by category">
+              <option value="">All Categories</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+            <ChevronDown size={15} className="admin-cat-chevron" />
           </div>
           <span className="admin-search-count">
             Showing {filteredProducts.length} of {stats.products.length}
@@ -215,12 +234,12 @@ export default function Dashboard() {
                     <Link to={`/admin/edit/${p.id}`} className="btn btn-sm btn-primary">
                       <Pencil size={13} /> Edit
                     </Link>
-                    <button
-                      onClick={() => handleDelete(p.id)}
-                      className="btn btn-sm btn-danger"
-                    >
-                      <Trash2 size={13} /> Delete
-                    </button>
+                <button
+                  onClick={() => setDeleteTarget(p)}
+                  className="btn btn-sm btn-danger"
+                >
+                  <Trash2 size={13} /> Delete
+                </button>
                   </td>
                 </tr>
               ))}
@@ -229,6 +248,40 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {deleteTarget && (
+        <div className="modal-overlay" onClick={() => !deleting && setDeleteTarget(null)}>
+          <div className="modal-box" role="dialog" aria-modal="true" aria-label="Delete product">
+            <h3>Delete Product?</h3>
+            <p>
+              Are you sure you want to delete
+              <br />
+              <strong>&ldquo;{deleteTarget.name}&rdquo;</strong>?
+              <br />
+              This action cannot be undone.
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger"
+                disabled={deleting}
+                onClick={() => handleDelete(deleteTarget.id)}
+              >
+                {deleting ? <Loader2 size={16} className="spin" /> : <Trash2 size={16} />}
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
