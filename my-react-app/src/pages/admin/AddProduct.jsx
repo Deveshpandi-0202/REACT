@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Plus, Loader2, ChevronLeft } from "lucide-react";
 import api from "../../api/axios";
+import { useToast } from "../../context/ToastContext";
 
 export default function AddProduct() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -12,7 +16,7 @@ export default function AddProduct() {
     category: "",
     stock: "",
   });
-  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -20,80 +24,93 @@ export default function AddProduct() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setSubmitting(true);
     try {
       await api.post("/products", {
         ...form,
         price: parseFloat(form.price),
         stock: parseInt(form.stock) || 0,
       });
+      toast.success("Product added successfully");
       navigate("/admin");
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to add product");
+      toast.error(err.response?.data?.error || "Failed to add product");
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="admin-form-page">
+    <motion.div
+      className="admin-form-page"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+    >
+      <button className="back-link" onClick={() => navigate("/admin")}>
+        <ChevronLeft size={16} /> Back to Dashboard
+      </button>
       <h1>Add Product</h1>
-      {error && <div className="error-msg">{error}</div>}
       <form className="admin-form" onSubmit={handleSubmit}>
+        <label>Product Name *</label>
         <input
           name="name"
-          placeholder="Product Name"
+          placeholder="e.g. Fresh Apples (1 kg)"
           value={form.name}
           onChange={handleChange}
           required
         />
+        <label>Description</label>
         <textarea
           name="description"
-          placeholder="Description"
+          placeholder="Short description"
           value={form.description}
           onChange={handleChange}
           rows={3}
         />
+        <label>Price (₹) *</label>
         <input
           name="price"
           type="number"
           step="0.01"
-          placeholder="Price"
+          min="0"
+          placeholder="0.00"
           value={form.price}
           onChange={handleChange}
           required
         />
+        <label>Image URL</label>
         <input
           name="image_url"
-          placeholder="Image URL"
+          placeholder="https://..."
           value={form.image_url}
           onChange={handleChange}
         />
+        <label>Category *</label>
         <input
           name="category"
-          placeholder="Category (e.g. Fruits, Dairy)"
+          placeholder="e.g. Fruits, Dairy"
           value={form.category}
           onChange={handleChange}
           required
         />
+        <label>Stock</label>
         <input
           name="stock"
           type="number"
-          placeholder="Stock"
+          min="0"
+          placeholder="0"
           value={form.stock}
           onChange={handleChange}
         />
         <div className="form-actions">
-          <button type="submit" className="btn btn-primary">
+          <button type="submit" className="btn btn-primary" disabled={submitting}>
+            {submitting ? <Loader2 size={16} className="spin" /> : <Plus size={16} />}
             Add Product
           </button>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => navigate("/admin")}
-          >
+          <button type="button" className="btn" onClick={() => navigate("/admin")}>
             Cancel
           </button>
         </div>
       </form>
-    </div>
+    </motion.div>
   );
 }

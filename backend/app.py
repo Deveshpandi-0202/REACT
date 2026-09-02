@@ -294,6 +294,57 @@ def my_orders():
     return jsonify([o.to_dict() for o in orders])
 
 
+# ── Admin Dashboard / Stats ───────────────────────────────────────────────────
+
+
+@app.route("/api/admin/stats", methods=["GET"])
+@jwt_required()
+def admin_stats():
+    admin = User.query.get(int(get_jwt_identity()))
+    if not admin or admin.role != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+
+    from sqlalchemy import func
+
+    total_users = User.query.count()
+    total_products = Product.query.count()
+    total_orders = Order.query.count()
+    orders_summary = db.session.query(
+        func.coalesce(func.sum(Order.total_amount), 0.0)
+    ).scalar()
+
+    category_counts = (
+        db.session.query(Product.category, func.count(Product.id))
+        .group_by(Product.category)
+        .all()
+    )
+    by_category = [{"category": c, "count": int(n)} for c, n in category_counts]
+
+    status_counts = (
+        db.session.query(Order.status, func.count(Order.id))
+        .group_by(Order.status)
+        .all()
+    )
+    by_status = [{"status": s, "count": int(n)} for s, n in status_counts]
+
+    low_stock = Product.query.filter(Product.stock <= 10).order_by(Product.stock.asc()).all()
+    low_stock_products = [p.to_dict() for p in low_stock]
+
+    recent_orders = Order.query.order_by(Order.created_at.desc()).limit(5).all()
+    recent = [o.to_dict() for o in recent_orders]
+
+    return jsonify({
+        "total_users": total_users,
+        "total_products": total_products,
+        "total_orders": total_orders,
+        "revenue": round(orders_summary, 2),
+        "by_category": by_category,
+        "by_status": by_status,
+        "low_stock": low_stock_products,
+        "recent_orders": recent,
+    })
+
+
 # ── Admin User Management ─────────────────────────────────────────────────────
 
 

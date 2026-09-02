@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { Users, UserCheck, UserX, Loader2, Trash2 } from "lucide-react";
 import api from "../../api/axios";
+import { useToast } from "../../context/ToastContext";
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+};
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const toast = useToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -23,25 +32,23 @@ export default function UserManagement() {
   }, []);
 
   const handleToggle = async (userId) => {
-    setError("");
     try {
       const res = await api.put(`/admin/users/${userId}/toggle`);
-      setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? res.data : u))
-      );
+      setUsers((prev) => prev.map((u) => (u.id === userId ? res.data : u)));
+      toast.success(res.data.is_active ? "User activated" : "User deactivated");
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to toggle user");
+      toast.error(err.response?.data?.error || "Failed to toggle user");
     }
   };
 
   const handleDelete = async (userId) => {
     if (!window.confirm("Delete this user? This cannot be undone.")) return;
-    setError("");
     try {
       await api.delete(`/admin/users/${userId}`);
       setUsers((prev) => prev.filter((u) => u.id !== userId));
+      toast.success("User deleted");
     } catch (err) {
-      setError(err.response?.data?.error || "Failed to delete user");
+      toast.error(err.response?.data?.error || "Failed to delete user");
     }
   };
 
@@ -49,28 +56,29 @@ export default function UserManagement() {
   const activeUsers = users.filter((u) => u.is_active).length;
   const inactiveUsers = totalUsers - activeUsers;
 
-  if (loading) return <div className="loading">Loading users...</div>;
+  if (loading) return <div className="loading"><Loader2 size={24} className="spin" /> Loading users...</div>;
+
+  const stats = [
+    { label: "Total Users", value: totalUsers, icon: <Users size={20} />, cls: "blue" },
+    { label: "Active", value: activeUsers, icon: <UserCheck size={20} />, cls: "green" },
+    { label: "Inactive", value: inactiveUsers, icon: <UserX size={20} />, cls: "red" },
+  ];
 
   return (
     <div className="admin-page">
-      <h1>User Management</h1>
+      <h1><Users size={22} /> User Management</h1>
 
       {error && <div className="error-msg">{error}</div>}
 
-      <div className="user-stats">
-        <div className="stat-card">
-          <span className="stat-number">{totalUsers}</span>
-          <span className="stat-label">Total Users</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-number">{activeUsers}</span>
-          <span className="stat-label">Active</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-number">{inactiveUsers}</span>
-          <span className="stat-label">Inactive</span>
-        </div>
-      </div>
+      <motion.div className="stats-grid" initial="hidden" animate="show">
+        {stats.map((s) => (
+          <motion.div key={s.label} className={`stat-card-lrg ${s.cls}`} variants={fadeUp}>
+            <div className="stat-card-icon">{s.icon}</div>
+            <span className="stat-card-value">{s.value}</span>
+            <span className="stat-card-label">{s.label}</span>
+          </motion.div>
+        ))}
+      </motion.div>
 
       <div className="admin-table-wrap">
         <table className="admin-table">
@@ -100,9 +108,7 @@ export default function UserManagement() {
                   </span>
                 </td>
                 <td>
-                  {u.created_at
-                    ? new Date(u.created_at).toLocaleDateString()
-                    : "-"}
+                  {u.created_at ? new Date(u.created_at).toLocaleDateString() : "-"}
                 </td>
                 <td className="admin-actions">
                   {u.role !== "admin" && (
@@ -117,7 +123,7 @@ export default function UserManagement() {
                         onClick={() => handleDelete(u.id)}
                         className="btn btn-sm btn-danger"
                       >
-                        Delete
+                        <Trash2 size={13} /> Delete
                       </button>
                     </>
                   )}
