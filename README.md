@@ -4,6 +4,60 @@ A full-stack grocery delivery web application inspired by Blinkit. Built with Re
 
 ---
 
+## Client Quick Overview
+
+**What is GrocerApp?** A full-stack online grocery delivery app inspired by Blinkit. Customers can browse products, search and filter by category, add items to their cart, checkout, and track their orders in real time.
+
+### Who Uses It
+
+| Role | What They Can Do |
+|------|------------------|
+| **Customer** | Browse products, search and filter, manage a cart, check out, and track orders |
+| **Admin** | Manage products, users, drivers, and all orders |
+| **Driver** | View assigned deliveries and update their delivery status |
+
+### Live Project
+
+You can explore the working application right now:
+
+- 🌐 **Live Website:** [Open the Frontend](https://deveshpandi-0202.github.io/REACT/)
+- 🔧 **Live Backend API:** [Open the Backend API](https://blinkit-backend-mg62.onrender.com/api)
+
+### How It Works (Simple View)
+
+```
+Customer → React Website → Flask Backend → PostgreSQL Database
+```
+
+### Where It's Hosted
+
+| Piece | Hosting |
+|-------|---------|
+| Frontend (website) | GitHub Pages |
+| Backend (API) | Render |
+| Database | PostgreSQL on Render |
+
+### How to See the Project
+
+1. **Open the Live Demo** — visit the [frontend link](https://deveshpandi-0202.github.io/REACT/) above.
+2. **Login or create an account** — sign in as a customer, or register a new account.
+3. **Browse products and add items to your cart** — use search and category filters.
+4. **Try checkout and order tracking** — place an order and follow its delivery status.
+5. **Admin and Driver features** can be reviewed separately using the role-based accounts described in this document.
+
+### Project Highlights
+
+- JWT Authentication
+- Role-based access (Customer / Admin / Driver)
+- Product management
+- Shopping cart
+- Order management
+- Driver delivery workflow
+- PostgreSQL production database
+- Docker support
+
+---
+
 ## Project Links
 
 | Resource                     | Link                                                                             |
@@ -132,7 +186,8 @@ GrocerApp is a multi-role grocery delivery platform that supports three user typ
 
 | Technology | Purpose |
 |------------|---------|
-| SQLite | Lightweight relational database (auto-created on first run) |
+| PostgreSQL | Production relational database — hosted on Render (`blinkit-db`) for the live backend |
+| SQLite | Local development database used by the local Docker setup (stored in a Docker volume) |
 
 ### DevOps & Deployment
 
@@ -142,28 +197,25 @@ GrocerApp is a multi-role grocery delivery platform that supports three user typ
 | Docker Hub | Pre-built image hosting |
 | Docker Compose | Multi-container orchestration |
 | GitHub Actions | CI/CD — lint, build, deploy frontend to GitHub Pages |
-| Render | Hosts the backend API |
+| Render | Hosts the backend API and the production PostgreSQL database |
 
 ---
 
 ## Application Architecture
 
+### Production
+
 ```
-Customer ──> React Frontend (Vite + Nginx)
+Customer ──> React Frontend (GitHub Pages)
                    │
                    v
               Axios (JWT interceptor)
                    │
                    v
-              Flask REST API (Gunicorn)
-                   │
-            ┌──────┼──────┐
-            v      v      v
-         Auth   Routes  Models
-         (JWT)  (REST)  (SQLAlchemy)
+              Flask REST API (Render)
                    │
                    v
-              SQLite Database
+              PostgreSQL Database (Render · blinkit-db)
 
   ┌───────────┼───────────┐
   v           v           v
@@ -176,7 +228,11 @@ Order    Assign Driver  Delivery
            DELIVERED
 ```
 
-The frontend communicates with the Flask backend through REST API endpoints. Nginx reverse-proxies all `/api` requests from the frontend container to the backend container. Authentication is handled via JWT tokens stored in `localStorage`. The Axios interceptor automatically attaches the token to every API request. All three roles are protected both on the frontend (via `ProtectedRoute` component) and on the backend (via JWT validation and role checks).
+### Architecture Notes
+
+In production, the React frontend is served from **GitHub Pages** and communicates with the **Flask backend hosted on Render** through the REST API endpoints at `https://blinkit-backend-mg62.onrender.com/api`. The backend stores all data in a **PostgreSQL** database hosted on Render. Authentication is handled via JWT tokens stored in `localStorage`. The Axios interceptor automatically attaches the token to every API request. All three roles are protected both on the frontend (via `ProtectedRoute` component) and on the backend (via JWT validation and role checks).
+
+For **local Docker development**, the flow is slightly different: the frontend (Nginx) reverse-proxies all `/api` requests to the backend container, which uses the local SQLite database stored in a Docker volume (see the [Docker Deployment](#docker-deployment) section).
 
 ---
 
@@ -343,7 +399,7 @@ The application currently supports the following payment methods:
 
 ## Docker Deployment
 
-GrocerApp ships as two pre-built Docker images on Docker Hub. The frontend (Nginx) serves the React app and reverse-proxies `/api` requests to the backend (Gunicorn + Flask). The backend stores data in a persistent SQLite volume.
+GrocerApp ships as two pre-built Docker images on Docker Hub. The frontend (Nginx) serves the React app and reverse-proxies `/api` requests to the backend (Gunicorn + Flask). The backend stores data in a persistent SQLite volume for **local development**. This local Docker setup is completely independent from the production deployment, which uses a **PostgreSQL** database hosted on Render.
 
 ### Docker Hub Images
 
@@ -360,7 +416,8 @@ Browser ──> Frontend (Nginx :80 → localhost:8080)
                 ├── /            → React SPA (static files)
                 └── /api/*       → proxy to Backend (Gunicorn :5000)
                                         │
-                                        └── SQLite DB (Docker volume: /app/data)
+                                        └── Local SQLite DB (Docker volume: /app/data)
+                                           (local development only)
 ```
 
 ---
