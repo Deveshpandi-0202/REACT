@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Truck, Loader2, UserCheck, UserX, UserPlus, Plus, X } from "lucide-react";
+import { Truck, Loader2, UserCheck, UserX, UserPlus, Plus, X, Trash2 } from "lucide-react";
 import api from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
 
@@ -41,6 +41,17 @@ export default function DriverManagement() {
       toast.success(res.data.is_active ? "Driver activated" : "Driver deactivated");
     } catch (err) {
       toast.error(err.response?.data?.error || "Failed to update driver");
+    }
+  };
+
+  const handleDelete = async (driver) => {
+    if (!window.confirm(`Delete driver "${driver.name}"? This cannot be undone.`)) return;
+    try {
+      const res = await api.delete(`/admin/users/${driver.id}`);
+      setDrivers((prev) => prev.filter((d) => d.id !== driver.id));
+      toast.success(res.data?.message || "Driver deleted");
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to delete driver");
     }
   };
 
@@ -173,6 +184,12 @@ export default function DriverManagement() {
                         <option value="busy">Busy</option>
                         <option value="inactive">Inactive</option>
                       </select>
+                      <button
+                        onClick={() => handleDelete(d)}
+                        className="btn btn-sm btn-danger"
+                      >
+                        <Trash2 size={13} /> Delete
+                      </button>
                     </td>
                   </tr>
                 ))}

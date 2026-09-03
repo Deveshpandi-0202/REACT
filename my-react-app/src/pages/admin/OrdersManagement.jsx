@@ -10,6 +10,11 @@ function humanize(status) {
 
 const ASSIGNABLE = ["pending", "confirmed", "preparing", "ready_for_pickup"];
 
+const ALL_STATUSES = [
+  "pending", "confirmed", "preparing", "ready_for_pickup",
+  "assigned", "picked_up", "out_for_delivery", "delivered", "cancelled",
+];
+
 export default function OrdersManagement() {
   const [orders, setOrders] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -41,6 +46,18 @@ export default function OrdersManagement() {
       toast.success("Driver assigned successfully");
     } catch (err) {
       toast.error(err.response?.data?.error || "Failed to assign driver");
+    }
+  };
+
+  const updateStatus = async (order, e) => {
+    const newStatus = e.target.value;
+    if (!newStatus || newStatus === order.status) return;
+    try {
+      const res = await api.put(`/admin/orders/${order.id}/status`, { status: newStatus });
+      setOrders((prev) => prev.map((o) => (o.id === res.data.id ? res.data : o)));
+      toast.success(`Order #${order.id} marked ${humanize(newStatus)}`);
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to update order status");
     }
   };
 
@@ -120,6 +137,19 @@ export default function OrdersManagement() {
                               </button>
                             </div>
                           )}
+                          <div className="assign-driver-row admin-status-row">
+                            <label className="assign-label">Update Status:</label>
+                            <select
+                              className="assign-select"
+                              value={order.status || "pending"}
+                              onChange={(e) => updateStatus(order, e)}
+                              aria-label="Update order status"
+                            >
+                              {ALL_STATUSES.map((s) => (
+                                <option key={s} value={s}>{humanize(s)}</option>
+                              ))}
+                            </select>
+                          </div>
                           {order.status === "delivered" && (
                             <div className="driver-delivered-note">Delivered successfully</div>
                           )}
