@@ -4,5 +4,6 @@ flask-jwt-extended
 flask-cors
 werkzeug
 gunicorn
+psycopg2-binary
 
 msgpack>=1.2.1

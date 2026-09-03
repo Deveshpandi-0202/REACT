@@ -7,3 +7,5 @@ __pycache__/
 .env.*
 !.env.example
 !.env.production
+
+backend/blinkit.db.backup

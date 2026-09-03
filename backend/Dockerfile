@@ -22,6 +22,5 @@ RUN chmod +x /entrypoint.sh
 EXPOSE 5000
 
 ENV PORT=5000
-ENV SQLALCHEMY_DATABASE_URI=sqlite:////app/data/blinkit.db
 
 ENTRYPOINT ["/entrypoint.sh"]
