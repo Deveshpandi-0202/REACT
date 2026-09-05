@@ -63,9 +63,12 @@ class User(db.Model):
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(256), nullable=False)
+    phone = db.Column(db.String(20), default="")
     role = db.Column(db.String(10), nullable=False, default="user")
     is_active = db.Column(db.Boolean, default=True)
     availability = db.Column(db.String(20), default="available")
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     def to_dict(self):
@@ -73,9 +76,30 @@ class User(db.Model):
             "id": self.id,
             "name": self.name,
             "email": self.email,
+            "phone": self.phone,
             "role": self.role,
             "is_active": self.is_active,
             "availability": self.availability,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class Category(db.Model):
+    __tablename__ = "categories"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    icon = db.Column(db.String(500), default="")
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+
+    def to_dict(self):
+        count = Product.query.filter_by(category=self.name).count()
+        return {
+            "id": self.id,
+            "name": self.name,
+            "icon": self.icon,
+            "product_count": count,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -86,6 +110,9 @@ class Product(db.Model):
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, default="")
     price = db.Column(db.Float, nullable=False)
+    original_price = db.Column(db.Float, nullable=True)
+    discount = db.Column(db.Integer, default=0)
+    rating = db.Column(db.Float, default=0)
     image_url = db.Column(db.String(500), default="")
     category = db.Column(db.String(100), nullable=False)
     stock = db.Column(db.Integer, default=0)
@@ -97,6 +124,9 @@ class Product(db.Model):
             "name": self.name,
             "description": self.description,
             "price": self.price,
+            "original_price": self.original_price if self.original_price is not None else self.price,
+            "discount": self.discount,
+            "rating": self.rating,
             "image_url": self.image_url,
             "category": self.category,
             "stock": self.stock,
@@ -110,9 +140,14 @@ class Order(db.Model):
     driver_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     total_amount = db.Column(db.Float, nullable=False)
     status = db.Column(db.String(30), default="pending")
+    payment_method = db.Column(db.String(30), default="cod")
     delivery_address = db.Column(db.String(255), default="")
     delivery_city = db.Column(db.String(120), default="")
     delivery_phone = db.Column(db.String(20), default="")
+    pincode = db.Column(db.String(20), default="")
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+    estimated_delivery = db.Column(db.DateTime, nullable=True)
     delivered_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
@@ -125,13 +160,23 @@ class Order(db.Model):
             "id": self.id,
             "user_id": self.user_id,
             "customer_name": self.customer.name if self.customer else None,
+            "customer_phone": self.customer.phone if self.customer else None,
             "driver_id": self.driver_id,
             "driver_name": self.driver.name if self.driver else None,
+            "driver_phone": self.driver.phone if self.driver else None,
+            "driver_latitude": self.driver.latitude if self.driver else None,
+            "driver_longitude": self.driver.longitude if self.driver else None,
+            "driver_availability": self.driver.availability if self.driver else None,
             "total_amount": self.total_amount,
             "status": self.status,
+            "payment_method": self.payment_method,
             "delivery_address": self.delivery_address,
             "delivery_city": self.delivery_city,
             "delivery_phone": self.delivery_phone,
+            "pincode": self.pincode,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "estimated_delivery": self.estimated_delivery.isoformat() if self.estimated_delivery else None,
             "delivered_at": self.delivered_at.isoformat() if self.delivered_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "items": [i.to_dict() for i in self.items],
@@ -174,6 +219,7 @@ def signup():
         name=data["name"],
         email=data["email"],
         password=generate_password_hash(data["password"]),
+        phone=data.get("phone", ""),
         role="user",
     )
     db.session.add(user)
@@ -202,6 +248,7 @@ def signin():
 
 
 @app.route("/api/products", methods=["GET"])
+@jwt_required()
 def get_products():
     query = Product.query
     category = request.args.get("category")
@@ -214,6 +261,7 @@ def get_products():
 
 
 @app.route("/api/products/<int:product_id>", methods=["GET"])
+@jwt_required()
 def get_product(product_id):
     product = Product.query.get_or_404(product_id)
     return jsonify(product.to_dict())
@@ -230,10 +278,19 @@ def create_product():
     if not data or not data.get("name") or not data.get("price") or not data.get("category"):
         return jsonify({"error": "Name, price and category are required"}), 400
 
+    discount = int(data.get("discount", 0) or 0)
+    price = float(data["price"])
+    original_price = data.get("original_price")
+    if original_price is None:
+        original_price = price / (1 - discount / 100.0) if discount > 0 and discount < 100 else price
+
     product = Product(
         name=data["name"],
         description=data.get("description", ""),
-        price=data["price"],
+        price=price,
+        original_price=original_price,
+        discount=discount,
+        rating=float(data.get("rating", 0) or 0),
         image_url=data.get("image_url", ""),
         category=data["category"],
         stock=data.get("stock", 0),
@@ -254,10 +311,22 @@ def update_product(product_id):
     data = request.get_json()
     product.name = data.get("name", product.name)
     product.description = data.get("description", product.description)
-    product.price = data.get("price", product.price)
+    if "price" in data:
+        product.price = float(data["price"])
     product.image_url = data.get("image_url", product.image_url)
     product.category = data.get("category", product.category)
-    product.stock = data.get("stock", product.stock)
+    if "stock" in data:
+        product.stock = data.get("stock", product.stock)
+    if "discount" in data:
+        product.discount = int(data["discount"] or 0)
+    if "rating" in data:
+        product.rating = float(data["rating"] or 0)
+    if "original_price" in data:
+        product.original_price = float(data["original_price"])
+    if "price" in data and "original_price" not in data and product.discount > 0:
+        product.original_price = product.price / (1 - product.discount / 100.0) if product.discount < 100 else product.price
+    elif "price" in data and product.original_price is None:
+        product.original_price = product.price
     db.session.commit()
     return jsonify(product.to_dict())
 
@@ -279,12 +348,122 @@ def delete_product(product_id):
 
 
 @app.route("/api/categories", methods=["GET"])
+@jwt_required()
 def get_categories():
-    categories = db.session.query(Product.category).distinct().all()
-    return jsonify([c[0] for c in categories])
+    named = {c.name for c in Category.query.all()}
+    derived = {c[0] for c in db.session.query(Product.category).distinct().all()}
+    merged = sorted(named | derived)
+    return jsonify(merged)
+
+
+@app.route("/api/admin/categories", methods=["GET"])
+@jwt_required()
+def admin_categories():
+    admin = _current_user()
+    if not admin or admin.role != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+    cats = Category.query.order_by(Category.name.asc()).all()
+    return jsonify([c.to_dict() for c in cats])
+
+
+@app.route("/api/admin/categories", methods=["POST"])
+@jwt_required()
+def create_category():
+    admin = _current_user()
+    if not admin or admin.role != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Category name is required"}), 400
+    if Category.query.filter_by(name=name).first():
+        return jsonify({"error": "Category already exists"}), 409
+    cat = Category(name=name, icon=data.get("icon", ""))
+    db.session.add(cat)
+    db.session.commit()
+    return jsonify({"message": "Category created", "category": cat.to_dict()}), 201
+
+
+@app.route("/api/admin/categories/<int:category_id>", methods=["PUT"])
+@jwt_required()
+def update_category(category_id):
+    admin = _current_user()
+    if not admin or admin.role != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+    cat = Category.query.get_or_404(category_id)
+    data = request.get_json(silent=True) or {}
+    new_name = (data.get("name") or "").strip()
+    if not new_name:
+        return jsonify({"error": "Category name is required"}), 400
+    existing = Category.query.filter_by(name=new_name).first()
+    if existing and existing.id != cat.id:
+        return jsonify({"error": "Category already exists"}), 409
+    old_name = cat.name
+    cat.name = new_name
+    if data.get("icon") is not None:
+        cat.icon = data.get("icon")
+    if old_name != new_name:
+        for p in Product.query.filter_by(category=old_name).all():
+            p.category = new_name
+    db.session.commit()
+    return jsonify({"message": "Category updated", "category": cat.to_dict()})
+
+
+@app.route("/api/admin/categories/<int:category_id>", methods=["DELETE"])
+@jwt_required()
+def delete_category(category_id):
+    admin = _current_user()
+    if not admin or admin.role != "admin":
+        return jsonify({"error": "Admin access required"}), 403
+    cat = Category.query.get_or_404(category_id)
+    count = Product.query.filter_by(category=cat.name).count()
+    if count:
+        return jsonify({"error": f"Category '{cat.name}' has {count} product(s). Move or delete them first."}), 400
+    db.session.delete(cat)
+    db.session.commit()
+    return jsonify({"message": "Category deleted"})
 
 
 # ── Order Routes ──────────────────────────────────────────────────────────────
+
+
+def _auto_assign_driver(order):
+    """Select an available eligible driver and assign them to the order.
+
+    Preference: nearest available driver when location data is present.
+    Returns the assigned User or None if no driver is available.
+    """
+    from sqlalchemy import func
+
+    latitude = order.latitude
+    longitude = order.longitude
+    eligible = (
+        User.query.filter(
+            User.role == "driver",
+            User.is_active.is_(True),
+            User.availability == "available",
+        )
+        .order_by(User.id.asc())
+        .all()
+    )
+    if not eligible:
+        return None
+
+    if latitude is not None and longitude is not None:
+        def _dist(driver):
+            if driver.latitude is None or driver.longitude is None:
+                return float("inf")
+            return (driver.latitude - latitude) ** 2 + (driver.longitude - longitude) ** 2
+        driver = min(eligible, key=_dist)
+        if driver.latitude is None or driver.longitude is None:
+            driver = eligible[0]
+    else:
+        driver = eligible[0]
+
+    order.driver_id = driver.id
+    order.status = "assigned"
+    driver.availability = "busy"
+    return driver
 
 
 @app.route("/api/orders", methods=["POST"])
@@ -308,19 +487,39 @@ def create_order():
         total += product.price * qty
         order_items.append(OrderItem(product_id=product.id, quantity=qty, price=product.price))
 
+    payment_method = (data.get("payment_method") or "cod").strip().lower()
+    if payment_method not in ("cod", "gpay"):
+        return jsonify({"error": "Invalid payment method"}), 400
+
+    from datetime import datetime, timedelta as _td
+    estimated = datetime.utcnow() + _td(minutes=30)
+
     order = Order(
         user_id=user_id,
         total_amount=round(total, 2),
+        payment_method=payment_method,
         delivery_address=data.get("address", ""),
         delivery_city=data.get("city", ""),
         delivery_phone=data.get("phone", ""),
+        pincode=data.get("pincode", ""),
+        latitude=data.get("latitude"),
+        longitude=data.get("longitude"),
+        estimated_delivery=estimated,
     )
     db.session.add(order)
     db.session.flush()
     for oi in order_items:
         oi.order_id = order.id
         db.session.add(oi)
-    db.session.commit()
+
+    assigned_driver = None
+    try:
+        assigned_driver = _auto_assign_driver(order)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+
     return jsonify(order.to_dict()), 201
 
 
@@ -336,7 +535,8 @@ def get_order(order_id):
     is_driver = requester.role == "driver" and order.driver_id == requester.id
     if not (is_owner or is_admin or is_driver):
         return jsonify({"error": "You are not authorized to view this order"}), 403
-    return jsonify(order.to_dict())
+    d = order.to_dict() if (is_admin or is_driver) else _customer_order_dict(order)
+    return jsonify(d)
 
 
 @app.route("/api/orders/my", methods=["GET"])
@@ -344,7 +544,7 @@ def get_order(order_id):
 def my_orders():
     user_id = int(get_jwt_identity())
     orders = Order.query.filter_by(user_id=user_id).order_by(Order.created_at.desc()).all()
-    return jsonify([o.to_dict() for o in orders])
+    return jsonify([_customer_order_dict(o) for o in orders])
 
 
 # ── Driver Delivery Module ────────────────────────────────────────────────────
@@ -354,16 +554,26 @@ def _current_user():
     return User.query.get(int(get_jwt_identity()))
 
 
+def _customer_order_dict(order):
+    d = order.to_dict()
+    d.pop("driver_id", None)
+    d.pop("driver_phone", None)
+    return d
+
+
 DRIVER_TRANSITIONS = {
-    "assigned": ["picked_up"],
+    "assigned": ["accepted"],
+    "accepted": ["picked_up"],
     "picked_up": ["out_for_delivery"],
     "out_for_delivery": ["delivered"],
 }
 
 VALID_ORDER_STATUSES = {
     "pending", "confirmed", "preparing", "ready_for_pickup",
-    "assigned", "picked_up", "out_for_delivery", "delivered", "cancelled",
+    "assigned", "accepted", "picked_up", "out_for_delivery", "delivered", "cancelled",
 }
+
+VALID_DRIVER_AVAILABILITY = {"available", "busy", "offline"}
 
 
 @app.route("/api/driver/orders", methods=["GET"])
@@ -389,6 +599,24 @@ def driver_order_detail(order_id):
     order = Order.query.get_or_404(order_id)
     if order.driver_id != driver.id:
         return jsonify({"error": "You are not assigned to this order"}), 403
+    return jsonify(order.to_dict())
+
+
+@app.route("/api/driver/orders/<int:order_id>/accept", methods=["PUT"])
+@jwt_required()
+def driver_accept_order(order_id):
+    driver = _current_user()
+    if not driver or driver.role != "driver":
+        return jsonify({"error": "Driver access required"}), 403
+    order = Order.query.get_or_404(order_id)
+    if order.driver_id != driver.id:
+        return jsonify({"error": "You are not assigned to this order"}), 403
+    if order.status != "assigned":
+        return jsonify({"error": f"Order cannot be accepted from status '{order.status}'"}), 400
+
+    order.status = "accepted"
+    driver.availability = "busy"
+    db.session.commit()
     return jsonify(order.to_dict())
 
 
@@ -421,6 +649,41 @@ def driver_update_status(order_id):
         driver.availability = "busy"
     db.session.commit()
     return jsonify(order.to_dict())
+
+
+@app.route("/api/driver/availability", methods=["PUT"])
+@jwt_required()
+def driver_set_availability():
+    driver = _current_user()
+    if not driver or driver.role != "driver":
+        return jsonify({"error": "Driver access required"}), 403
+    data = request.get_json(silent=True) or {}
+    value = (data.get("availability") or "").strip().lower()
+    if value not in VALID_DRIVER_AVAILABILITY:
+        return jsonify({"error": "Invalid availability value"}), 400
+    driver.availability = value
+    db.session.commit()
+    return jsonify(driver.to_dict())
+
+
+@app.route("/api/driver/location", methods=["PUT"])
+@jwt_required()
+def driver_update_location():
+    driver = _current_user()
+    if not driver or driver.role != "driver":
+        return jsonify({"error": "Driver access required"}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        lat = float(data.get("latitude"))
+        lng = float(data.get("longitude"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Valid latitude and longitude are required"}), 400
+    if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+        return jsonify({"error": "Latitude/longitude out of range"}), 400
+    driver.latitude = lat
+    driver.longitude = lng
+    db.session.commit()
+    return jsonify(driver.to_dict())
 
 
 # ── Admin Order / Driver Management ───────────────────────────────────────────
@@ -548,7 +811,9 @@ def set_driver_availability(driver_id):
         return jsonify({"error": "Admin access required"}), 403
     data = request.get_json(silent=True) or {}
     value = (data.get("availability") or "").strip().lower()
-    if value not in ("available", "busy", "inactive"):
+    if value == "inactive":
+        value = "offline"
+    if value not in VALID_DRIVER_AVAILABILITY:
         return jsonify({"error": "Invalid availability value"}), 400
     driver = User.query.get_or_404(driver_id)
     if driver.role != "driver":
@@ -574,6 +839,16 @@ def admin_stats():
     total_products = Product.query.count()
     total_orders = Order.query.count()
     total_drivers = User.query.filter_by(role="driver").count()
+
+    active_deliveries = Order.query.filter(
+        Order.status.in_(["assigned", "picked_up", "out_for_delivery"])
+    ).count()
+    available_drivers = User.query.filter_by(
+        role="driver", is_active=True, availability="available"
+    ).count()
+    pending_orders = Order.query.filter(
+        Order.status.in_(["pending", "confirmed", "preparing", "ready_for_pickup"])
+    ).count()
     orders_summary = db.session.query(
         func.coalesce(func.sum(Order.total_amount), 0.0)
     ).scalar()
@@ -603,6 +878,9 @@ def admin_stats():
         "total_products": total_products,
         "total_orders": total_orders,
         "total_drivers": total_drivers,
+        "active_deliveries": active_deliveries,
+        "available_drivers": available_drivers,
+        "pending_orders": pending_orders,
         "revenue": round(orders_summary, 2),
         "by_category": by_category,
         "by_status": by_status,
@@ -659,7 +937,54 @@ def delete_user(user_id):
 
 # ── Init ──────────────────────────────────────────────────────────────────────
 
+
+def _ensure_columns():
+    """Lightweight migration: add new columns/tables to an existing database
+    without dropping it. Non-destructive for existing data."""
+    try:
+        from sqlalchemy import inspect as sa_inspect
+
+        inspector = sa_inspect(db.engine)
+        tables = inspector.get_table_names()
+
+        def has_column(table, column):
+            if table not in tables:
+                return False
+            return any(c["name"] == column for c in inspector.get_columns(table))
+
+        with db.engine.begin() as conn:
+            if "users" in tables:
+                if not has_column("users", "phone"):
+                    conn.execute(db.text("ALTER TABLE users ADD COLUMN phone VARCHAR(20) DEFAULT ''"))
+                if not has_column("users", "latitude"):
+                    conn.execute(db.text("ALTER TABLE users ADD COLUMN latitude FLOAT"))
+                if not has_column("users", "longitude"):
+                    conn.execute(db.text("ALTER TABLE users ADD COLUMN longitude FLOAT"))
+            if "products" in tables:
+                if not has_column("products", "original_price"):
+                    conn.execute(db.text("ALTER TABLE products ADD COLUMN original_price FLOAT"))
+                if not has_column("products", "discount"):
+                    conn.execute(db.text("ALTER TABLE products ADD COLUMN discount INTEGER DEFAULT 0"))
+                if not has_column("products", "rating"):
+                    conn.execute(db.text("ALTER TABLE products ADD COLUMN rating FLOAT DEFAULT 0"))
+            if "orders" in tables:
+                if not has_column("orders", "payment_method"):
+                    conn.execute(db.text("ALTER TABLE orders ADD COLUMN payment_method VARCHAR(30) DEFAULT 'cod'"))
+                if not has_column("orders", "pincode"):
+                    conn.execute(db.text("ALTER TABLE orders ADD COLUMN pincode VARCHAR(20) DEFAULT ''"))
+                if not has_column("orders", "latitude"):
+                    conn.execute(db.text("ALTER TABLE orders ADD COLUMN latitude FLOAT"))
+                if not has_column("orders", "longitude"):
+                    conn.execute(db.text("ALTER TABLE orders ADD COLUMN longitude FLOAT"))
+                if not has_column("orders", "estimated_delivery"):
+                    conn.execute(db.text("ALTER TABLE orders ADD COLUMN estimated_delivery DATETIME"))
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+
+
 with app.app_context():
+    _ensure_columns()
     try:
         db.create_all()
     except Exception:
@@ -668,9 +993,9 @@ with app.app_context():
     from werkzeug.security import generate_password_hash as _gph
 
     seed_users = [
-        {"name": "Admin", "email": "admin123", "password": "admin123@gmail.com", "role": "admin"},
-        {"name": "Rahul", "email": "rahul@test.com", "password": "rahul123", "role": "user"},
-        {"name": "Kumar", "email": "driver@test.com", "password": "driver123", "role": "driver"},
+        {"name": "Admin", "email": "admin123", "password": "admin123@gmail.com", "role": "admin", "phone": "9000000000"},
+        {"name": "Rahul", "email": "rahul@test.com", "password": "rahul123", "role": "user", "phone": "9876543210"},
+        {"name": "Kumar", "email": "driver@test.com", "password": "driver123", "role": "driver", "phone": "9123456780", "availability": "available"},
     ]
     for su in seed_users:
         if not User.query.filter_by(email=su["email"]).first():
@@ -680,6 +1005,8 @@ with app.app_context():
                     email=su["email"],
                     password=_gph(su["password"]),
                     role=su["role"],
+                    phone=su.get("phone", ""),
+                    availability=su.get("availability", "available"),
                 ))
                 db.session.commit()
             except Exception:
@@ -687,25 +1014,34 @@ with app.app_context():
 
     if Product.query.first() is None:
         sample_products = [
-            {"name": "Fresh Apples (1 kg)", "description": "Crisp and juicy red apples", "price": 120.0, "image_url": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=300", "category": "Fruits", "stock": 50},
-            {"name": "Banana (1 dozen)", "description": "Ripe yellow bananas", "price": 40.0, "image_url": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=300", "category": "Fruits", "stock": 100},
-            {"name": "Fresh Oranges (1 kg)", "description": "Sweet navel oranges", "price": 80.0, "image_url": "https://images.unsplash.com/photo-1547514701-42782101795e?w=300", "category": "Fruits", "stock": 60},
-            {"name": "Amul Butter (100g)", "description": "Fresh creamy butter", "price": 50.0, "image_url": "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300", "category": "Dairy", "stock": 80},
-            {"name": "Full Cream Milk (1L)", "description": "Pasteurized full cream milk", "price": 60.0, "image_url": "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=300", "category": "Dairy", "stock": 120},
-            {"name": "Paneer (200g)", "description": "Fresh cottage cheese", "price": 80.0, "image_url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=300", "category": "Dairy", "stock": 40},
-            {"name": "Lays Classic Salted (52g)", "description": "Crispy potato chips", "price": 20.0, "image_url": "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=300", "category": "Snacks", "stock": 200},
-            {"name": "Maggi Noodles (70g)", "description": "2-minute instant noodles", "price": 14.0, "image_url": "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=300", "category": "Snacks", "stock": 150},
-            {"name": "Oreo Biscuits (120g)", "description": "Chocolate sandwich biscuits", "price": 30.0, "image_url": "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=300", "category": "Snacks", "stock": 100},
-            {"name": "Coca-Cola (300ml)", "description": "Chilled cola drink", "price": 20.0, "image_url": "https://images.unsplash.com/photo-1554866585-cd94860890b7?w=300", "category": "Beverages", "stock": 200},
-            {"name": "Tropicana Juice (1L)", "description": "Fresh orange juice", "price": 99.0, "image_url": "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=300", "category": "Beverages", "stock": 50},
-            {"name": "Tomato (1 kg)", "description": "Fresh ripe tomatoes", "price": 40.0, "image_url": "https://images.unsplash.com/photo-1546470427-0d4db154ceb8?w=300", "category": "Vegetables", "stock": 80},
-            {"name": "Onion (1 kg)", "description": "Fresh red onions", "price": 35.0, "image_url": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=300", "category": "Vegetables", "stock": 90},
-            {"name": "Potato (1 kg)", "description": "Fresh potatoes", "price": 30.0, "image_url": "https://images.unsplash.com/photo-1518977676601-b53f82ber40?w=300", "category": "Vegetables", "stock": 100},
-            {"name": "Surf Excel (500g)", "description": "Detergent powder", "price": 55.0, "image_url": "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=300", "category": "Household", "stock": 60},
-            {"name": "Vim Dishwash Liquid (500ml)", "description": "Lemon dishwashing liquid", "price": 99.0, "image_url": "https://images.unsplash.com/photo-1585421514284-efb74c2b69ba?w=300", "category": "Household", "stock": 45},
+            {"name": "Fresh Apples (1 kg)", "description": "Crisp and juicy red apples", "price": 120.0, "original_price": 150.0, "discount": 20, "rating": 4.6, "image_url": "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=300", "category": "Fruits", "stock": 50},
+            {"name": "Banana (1 dozen)", "description": "Ripe yellow bananas", "price": 40.0, "original_price": 50.0, "discount": 20, "rating": 4.4, "image_url": "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=300", "category": "Fruits", "stock": 100},
+            {"name": "Fresh Oranges (1 kg)", "description": "Sweet navel oranges", "price": 80.0, "original_price": 100.0, "discount": 20, "rating": 4.5, "image_url": "https://images.unsplash.com/photo-1547514701-42782101795e?w=300", "category": "Fruits", "stock": 60},
+            {"name": "Amul Butter (100g)", "description": "Fresh creamy butter", "price": 50.0, "original_price": 55.0, "discount": 9, "rating": 4.7, "image_url": "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300", "category": "Dairy", "stock": 80},
+            {"name": "Full Cream Milk (1L)", "description": "Pasteurized full cream milk", "price": 60.0, "original_price": 62.0, "discount": 3, "rating": 4.8, "image_url": "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=300", "category": "Dairy", "stock": 120},
+            {"name": "Paneer (200g)", "description": "Fresh soft cottage cheese", "price": 80.0, "original_price": 95.0, "discount": 16, "rating": 4.5, "image_url": "https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=300", "category": "Dairy", "stock": 40},
+            {"name": "Lays Classic Salted (52g)", "description": "Crispy potato chips", "price": 20.0, "original_price": 20.0, "discount": 0, "rating": 4.2, "image_url": "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=300", "category": "Snacks", "stock": 200},
+            {"name": "Maggi Noodles (70g)", "description": "2-minute instant noodles", "price": 14.0, "original_price": 15.0, "discount": 7, "rating": 4.3, "image_url": "https://images.unsplash.com/photo-1612929633738-8fe44f7ec841?w=300", "category": "Snacks", "stock": 150},
+            {"name": "Oreo Biscuits (120g)", "description": "Chocolate sandwich biscuits", "price": 30.0, "original_price": 35.0, "discount": 14, "rating": 4.6, "image_url": "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=300", "category": "Snacks", "stock": 100},
+            {"name": "Coca-Cola (300ml)", "description": "Chilled cola drink", "price": 20.0, "original_price": 22.0, "discount": 9, "rating": 4.4, "image_url": "https://images.unsplash.com/photo-1554866585-cd94860890b7?w=300", "category": "Beverages", "stock": 200},
+            {"name": "Tropicana Juice (1L)", "description": "Fresh orange juice, no added sugar", "price": 99.0, "original_price": 120.0, "discount": 18, "rating": 4.5, "image_url": "https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=300", "category": "Beverages", "stock": 50},
+            {"name": "Tomato (1 kg)", "description": "Fresh ripe tomatoes", "price": 40.0, "original_price": 45.0, "discount": 11, "rating": 4.2, "image_url": "https://images.unsplash.com/photo-1546470427-0d4db154ceb8?w=300", "category": "Vegetables", "stock": 80},
+            {"name": "Onion (1 kg)", "description": "Fresh red onions", "price": 35.0, "original_price": 38.0, "discount": 8, "rating": 4.2, "image_url": "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=300", "category": "Vegetables", "stock": 90},
+            {"name": "Potato (1 kg)", "description": "Fresh potatoes", "price": 30.0, "original_price": 30.0, "discount": 0, "rating": 4.1, "image_url": "https://images.unsplash.com/photo-1518977676601-b53f82ber40?w=300", "category": "Vegetables", "stock": 100},
+            {"name": "Surf Excel (500g)", "description": "Front-load detergent powder", "price": 55.0, "original_price": 65.0, "discount": 15, "rating": 4.5, "image_url": "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=300", "category": "Household", "stock": 60},
+            {"name": "Vim Dishwash Liquid (500ml)", "description": "Lemon dishwashing liquid", "price": 99.0, "original_price": 110.0, "discount": 10, "rating": 4.3, "image_url": "https://images.unsplash.com/photo-1585421514284-efb74c2b69ba?w=300", "category": "Household", "stock": 45},
         ]
         for p in sample_products:
             db.session.add(Product(**p))
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+    if Category.query.first() is None:
+        existing_categories = db.session.query(Product.category).distinct().all()
+        for (cname,) in existing_categories:
+            db.session.add(Category(name=cname, icon=""))
         try:
             db.session.commit()
         except Exception:

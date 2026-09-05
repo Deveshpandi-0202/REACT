@@ -20,13 +20,16 @@ export function CartProvider({ children }) {
 
   const addToCart = (product, quantity = 1) => {
     setItems((prev) => {
+      const cap = Number.isFinite(product.stock) && product.stock > 0 ? product.stock : Infinity;
       const existing = prev.find((i) => i.id === product.id);
+      const nextQty = Math.min((existing ? existing.quantity : 0) + quantity, cap);
+      if (nextQty <= 0) return prev;
       if (existing) {
         return prev.map((i) =>
-          i.id === product.id ? { ...i, quantity: i.quantity + quantity } : i
+          i.id === product.id ? { ...i, quantity: nextQty } : i
         );
       }
-      return [...prev, { ...product, quantity }];
+      return [...prev, { ...product, quantity: nextQty }];
     });
   };
 

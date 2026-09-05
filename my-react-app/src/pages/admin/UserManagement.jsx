@@ -100,6 +100,7 @@ export default function UserManagement() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoComplete="off"
+            aria-label="Search users"
           />
           {query && (
             <button className="admin-search-clear" onClick={() => setQuery("")} aria-label="Clear search">

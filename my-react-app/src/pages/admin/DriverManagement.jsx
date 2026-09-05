@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Truck, Loader2, UserCheck, UserX, UserPlus, Plus, X, Trash2 } from "lucide-react";
 import api from "../../api/axios";
@@ -21,17 +21,20 @@ export default function DriverManagement() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [saving, setSaving] = useState(false);
   const toast = useToast();
+  const mountedRef = useRef(true);
 
   const load = () => {
     api
       .get("/admin/drivers")
-      .then((res) => setDrivers(res.data || []))
-      .catch((err) => setError(err.response?.data?.error || "Failed to load drivers"))
-      .finally(() => setLoading(false));
+      .then((res) => { if (mountedRef.current) setDrivers(res.data || []); })
+      .catch((err) => { if (mountedRef.current) setError(err.response?.data?.error || "Failed to load drivers"); })
+      .finally(() => { if (mountedRef.current) setLoading(false); });
   };
 
   useEffect(() => {
+    mountedRef.current = true;
     load();
+    return () => { mountedRef.current = false; };
   }, []);
 
   const handleToggle = async (driver) => {
@@ -110,9 +113,12 @@ export default function DriverManagement() {
       {showAdd && (
         <motion.form className="admin-form driver-add-form" onSubmit={handleCreate} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
           <h3>Add New Driver</h3>
-          <input placeholder="Driver Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-          <input placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-          <input placeholder="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} />
+          <label htmlFor="new-driver-name" className="sr-only">Driver name</label>
+          <input id="new-driver-name" placeholder="Driver Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+          <label htmlFor="new-driver-email" className="sr-only">Driver email</label>
+          <input id="new-driver-email" placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+          <label htmlFor="new-driver-password" className="sr-only">Driver password</label>
+          <input id="new-driver-password" placeholder="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} />
           <button type="submit" className="btn btn-primary" disabled={saving}>
             {saving ? <Loader2 size={16} className="spin" /> : <Plus size={16} />} Create Driver
           </button>

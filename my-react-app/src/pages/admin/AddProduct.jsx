@@ -50,24 +50,27 @@ export default function AddProduct() {
       </button>
       <h1>Add Product</h1>
       <form className="admin-form" onSubmit={handleSubmit}>
-        <label>Product Name *</label>
+        <label htmlFor="add-name">Product Name *</label>
         <input
+          id="add-name"
           name="name"
           placeholder="e.g. Fresh Apples (1 kg)"
           value={form.name}
           onChange={handleChange}
           required
         />
-        <label>Description</label>
+        <label htmlFor="add-description">Description</label>
         <textarea
+          id="add-description"
           name="description"
           placeholder="Short description"
           value={form.description}
           onChange={handleChange}
           rows={3}
         />
-        <label>Price (₹) *</label>
+        <label htmlFor="add-price">Price (₹) *</label>
         <input
+          id="add-price"
           name="price"
           type="number"
           step="0.01"
@@ -77,23 +80,26 @@ export default function AddProduct() {
           onChange={handleChange}
           required
         />
-        <label>Image URL</label>
+        <label htmlFor="add-image">Image URL</label>
         <input
+          id="add-image"
           name="image_url"
           placeholder="https://..."
           value={form.image_url}
           onChange={handleChange}
         />
-        <label>Category *</label>
+        <label htmlFor="add-category">Category *</label>
         <input
+          id="add-category"
           name="category"
           placeholder="e.g. Fruits, Dairy"
           value={form.category}
           onChange={handleChange}
           required
         />
-        <label>Stock</label>
+        <label htmlFor="add-stock">Stock</label>
         <input
+          id="add-stock"
           name="stock"
           type="number"
           min="0"

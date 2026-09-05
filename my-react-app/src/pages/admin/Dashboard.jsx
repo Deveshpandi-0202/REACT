@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   Users, Package, ShoppingBag, IndianRupee, Plus, AlertTriangle,
   Pencil, Trash2, LayoutDashboard, Loader2, Search, X, ChevronDown,
-  ListChecks, ArrowDown,
+  ListChecks, ArrowDown, Bike, Truck, Clock, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import api from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
@@ -14,16 +14,25 @@ const fadeUp = {
   show: { opacity: 1, y: 0, transition: { duration: 0.35 } },
 };
 
-export default function Dashboard() {
+const PAGE_SIZE = 8;
+
+export default function Dashboard({ focusProducts }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
+  const [page, setPage] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const toast = useToast();
   const productsRef = useRef(null);
+
+  useEffect(() => {
+    if (focusProducts && productsRef.current && !loading) {
+      productsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [focusProducts, loading]);
 
   const scrollToProducts = () => {
     productsRef.current?.scrollIntoView({
@@ -92,7 +101,17 @@ export default function Dashboard() {
     { label: "Total Products", value: stats.total_products, icon: <Package size={22} />, cls: "green" },
     { label: "Total Orders", value: stats.total_orders, icon: <ShoppingBag size={22} />, cls: "purple" },
     { label: "Revenue", value: `₹${(stats.revenue || 0).toFixed(2)}`, icon: <IndianRupee size={22} />, cls: "amber" },
+    { label: "Active Deliveries", value: stats.active_deliveries, icon: <Bike size={22} />, cls: "teal" },
+    { label: "Available Drivers", value: stats.available_drivers, icon: <Truck size={22} />, cls: "cyan" },
+    { label: "Pending Orders", value: stats.pending_orders, icon: <Clock size={22} />, cls: "orange" },
   ];
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedProducts = filteredProducts.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE
+  );
 
   return (
     <div className="admin-page">
@@ -197,17 +216,18 @@ export default function Dashboard() {
               type="text"
               placeholder="Search products by name, category or ID…"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => { setQuery(e.target.value); setPage(1); }}
               autoComplete="off"
+              aria-label="Search products"
             />
             {query && (
-              <button className="admin-search-clear" onClick={() => setQuery("")} aria-label="Clear search">
+              <button className="admin-search-clear" onClick={() => { setQuery(""); setPage(1); }} aria-label="Clear search">
                 <X size={15} />
               </button>
             )}
           </div>
           <div className="admin-cat-filter">
-            <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Filter by category">
+            <select value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }} aria-label="Filter by category">
               <option value="">All Categories</option>
               {categories.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -216,7 +236,7 @@ export default function Dashboard() {
             <ChevronDown size={15} className="admin-cat-chevron" />
           </div>
           <span className="admin-search-count">
-            Showing {filteredProducts.length} of {stats.products.length}
+            Showing {paginatedProducts.length} of {filteredProducts.length}
           </span>
         </div>
         <div className="admin-table-wrap">
@@ -235,7 +255,7 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((p) => (
+              {paginatedProducts.map((p) => (
                 <tr key={p.id}>
                   <td>{p.id}</td>
                   <td>{p.name}</td>
@@ -261,6 +281,31 @@ export default function Dashboard() {
           </table>
           )}
         </div>
+        {filteredProducts.length > 0 && totalPages > 1 && (
+          <div className="admin-pagination">
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={safePage <= 1}
+              onClick={() => setPage(safePage - 1)}
+              aria-label="Previous page"
+            >
+              <ChevronLeft size={14} /> Prev
+            </button>
+            <span className="admin-pagination-info">
+              Page {safePage} of {totalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-sm"
+              disabled={safePage >= totalPages}
+              onClick={() => setPage(safePage + 1)}
+              aria-label="Next page"
+            >
+              Next <ChevronRight size={14} />
+            </button>
+          </div>
+        )}
       </div>
 
       {deleteTarget && (

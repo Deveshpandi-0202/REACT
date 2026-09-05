@@ -1,25 +1,37 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ShoppingBasket,
-  ShoppingCart,
   Menu,
   X,
   Sun,
   Moon,
   LogOut,
   Home,
-  Package,
-  Users,
   LayoutDashboard,
   Truck,
   ClipboardList,
+  Users,
+  LayoutGrid,
+  Package,
+  User,
+  Search,
+  SearchX,
+  ShoppingCart,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useTheme } from "../context/ThemeContext";
 import { useToast } from "../context/ToastContext";
+
+function NavLinkItem({ to, onClick, icon: Icon, label, end }) {
+  return (
+    <NavLink to={to} end={end} onClick={onClick} className={({ isActive }) => (isActive ? "active" : "")}>
+      <Icon size={16} /> {label}
+    </NavLink>
+  );
+}
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -28,6 +40,7 @@ export default function Navbar() {
   const toast = useToast();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [query, setQuery] = useState("");
 
   const handleLogout = () => {
     logout();
@@ -38,63 +51,92 @@ export default function Navbar() {
 
   const closeMenu = () => setMenuOpen(false);
 
+  const submitSearch = (e) => {
+    e.preventDefault();
+    const q = query.trim();
+    setMenuOpen(false);
+    navigate(q ? `/?q=${encodeURIComponent(q)}` : "/");
+  };
+
   return (
     <nav className="navbar">
       <div className="navbar-inner">
-        <Link to="/" className="navbar-brand" onClick={closeMenu}>
+        <Link to={user ? "/" : "/signin"} className="navbar-brand" onClick={closeMenu}>
           <ShoppingBasket size={24} />
-          <span>GrocerApp</span>
+          <span>GROZO</span>
         </Link>
 
         <button
           className="navbar-toggle"
           onClick={() => setMenuOpen((prev) => !prev)}
           aria-label="Toggle menu"
+          aria-expanded={menuOpen}
         >
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
 
         <div className={`navbar-links ${menuOpen ? "open" : ""}`}>
-          <Link to="/" onClick={closeMenu}>
-            <Home size={16} /> Home
-          </Link>
-
-          {user && user.role === "user" && (
+          {user?.role === "user" && (
             <>
-              <Link to="/cart" className="cart-link" onClick={closeMenu}>
-                <ShoppingCart size={16} /> Cart
-                {totalItems > 0 && <span className="cart-badge">{totalItems}</span>}
-              </Link>
-              <Link to="/orders" onClick={closeMenu}>
-                <Package size={16} /> Orders
-              </Link>
+              <NavLinkItem to="/" end onClick={closeMenu} icon={Home} label="Home" />
+              <NavLinkItem to="/categories" onClick={closeMenu} icon={LayoutGrid} label="Categories" />
+              <NavLinkItem to="/orders" onClick={closeMenu} icon={ClipboardList} label="Orders" />
+              <NavLinkItem to="/profile" onClick={closeMenu} icon={User} label="Profile" />
             </>
           )}
 
           {user?.role === "admin" && (
             <>
-              <Link to="/admin" onClick={closeMenu}>
-                <LayoutDashboard size={16} /> Dashboard
-              </Link>
-              <Link to="/admin/orders" onClick={closeMenu}>
-                <ClipboardList size={16} /> Orders
-              </Link>
-              <Link to="/admin/users" onClick={closeMenu}>
-                <Users size={16} /> Users
-              </Link>
-              <Link to="/admin/drivers" onClick={closeMenu}>
-                <Truck size={16} /> Drivers
-              </Link>
+              <NavLinkItem to="/admin" end onClick={closeMenu} icon={LayoutDashboard} label="Dashboard" />
+              <NavLinkItem to="/admin/products" onClick={closeMenu} icon={Package} label="Products" />
+              <NavLinkItem to="/admin/orders" onClick={closeMenu} icon={ClipboardList} label="Orders" />
+              <NavLinkItem to="/admin/categories" onClick={closeMenu} icon={LayoutGrid} label="Categories" />
+              <NavLinkItem to="/admin/users" onClick={closeMenu} icon={Users} label="Users" />
+              <NavLinkItem to="/admin/drivers" onClick={closeMenu} icon={Truck} label="Drivers" />
             </>
           )}
 
           {user?.role === "driver" && (
-            <Link to="/driver" onClick={closeMenu}>
-              <Truck size={16} /> Deliveries
-            </Link>
+            <NavLinkItem to="/driver" onClick={closeMenu} icon={Truck} label="Deliveries" />
+          )}
+
+          {user?.role === "user" && (
+            <form className="navbar-search" role="search" onSubmit={submitSearch}>
+              <Search size={16} className="navbar-search-icon" />
+              <input
+                type="search"
+                className="navbar-search-input"
+                placeholder="Search GROZO…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                aria-label="Search products"
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="navbar-search-clear"
+                  onClick={() => setQuery("")}
+                  aria-label="Clear search"
+                >
+                  <SearchX size={14} />
+                </button>
+              )}
+            </form>
           )}
 
           <div className="navbar-right">
+            {user?.role === "user" && (
+              <Link
+                to="/cart"
+                className="cart-link navbar-cart-icon"
+                onClick={closeMenu}
+                aria-label={`Cart${totalItems > 0 ? `, ${totalItems} items` : ""}`}
+              >
+                <ShoppingCart size={18} />
+                {totalItems > 0 && <span className="cart-badge">{totalItems}</span>}
+              </Link>
+            )}
+
             <button
               className="theme-toggle"
               onClick={toggleTheme}
@@ -105,21 +147,14 @@ export default function Navbar() {
 
             {user ? (
               <>
-                <span className="navbar-user">Hi, {user.name}</span>
+                {user.role === "user" && (
+                  <span className="navbar-user">Hi, {user.name.split(" ")[0]}</span>
+                )}
                 <button onClick={handleLogout} className="btn btn-sm">
                   <LogOut size={14} /> Logout
                 </button>
               </>
-            ) : (
-              <>
-                <Link to="/signin" className="btn btn-sm" onClick={closeMenu}>
-                  Sign In
-                </Link>
-                <Link to="/signup" className="btn btn-sm btn-outline" onClick={closeMenu}>
-                  Sign Up
-                </Link>
-              </>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

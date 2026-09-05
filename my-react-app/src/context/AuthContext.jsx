@@ -23,8 +23,8 @@ export function AuthProvider({ children }) {
     return res.data.user;
   };
 
-  const signup = async (name, email, password) => {
-    const res = await api.post("/auth/signup", { name, email, password });
+  const signup = async (name, email, phone, password) => {
+    const res = await api.post("/auth/signup", { name, email, phone, password });
     return res.data;
   };
 
