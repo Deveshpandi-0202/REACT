@@ -1,23 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { ShoppingBasket } from "lucide-react";
 
 export default function SplashScreen({ onDone }) {
   const [exit, setExit] = useState(false);
+  const doneRef = useRef(false);
 
   useEffect(() => {
     const t = setTimeout(() => setExit(true), 2100);
     return () => clearTimeout(t);
   }, []);
 
-  const handleExitComplete = () => onDone();
+  useEffect(() => {
+    if (!exit || doneRef.current) return;
+
+    doneRef.current = true;
+
+    const t = setTimeout(() => {
+      onDone();
+    }, 550);
+
+    return () => clearTimeout(t);
+  }, [exit, onDone]);
 
   return (
     <motion.div
       className="splash-screen"
-      exit={{ opacity: 0, scale: 1.06 }}
+      animate={
+        exit
+          ? { opacity: 0, scale: 1.06 }
+          : { opacity: 1, scale: 1 }
+      }
       transition={{ duration: 0.55, ease: "easeInOut" }}
-      onAnimationComplete={exit ? handleExitComplete : undefined}
     >
       <div className="splash-bg">
         <div className="splash-orb splash-orb-1" />
@@ -58,8 +72,16 @@ export default function SplashScreen({ onDone }) {
         <motion.div
           className="splash-produce"
           initial={{ opacity: 0, scale: 0.8, y: 24 }}
-          animate={{ opacity: exit ? 0 : 1, scale: 1, y: 0 }}
-          transition={{ delay: 0.35, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          animate={{
+            opacity: exit ? 0 : 1,
+            scale: 1,
+            y: 0,
+          }}
+          transition={{
+            delay: 0.35,
+            duration: 0.6,
+            ease: [0.22, 1, 0.36, 1],
+          }}
         >
           <span className="splash-fruit f1">🍎</span>
           <span className="splash-fruit f2">🥬</span>
@@ -79,10 +101,16 @@ export default function SplashScreen({ onDone }) {
               className="splash-progress-fill"
               initial={{ width: "0%" }}
               animate={{ width: "100%" }}
-              transition={{ duration: 1.4, ease: "easeInOut" }}
+              transition={{
+                duration: 1.4,
+                ease: "easeInOut",
+              }}
             />
           </div>
-          <span className="splash-loading-text">Preparing fresh picks…</span>
+
+          <span className="splash-loading-text">
+            Preparing fresh picks…
+          </span>
         </motion.div>
       </div>
     </motion.div>

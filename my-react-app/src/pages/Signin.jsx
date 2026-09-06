@@ -147,16 +147,10 @@ export default function Signin() {
             )}
           </button>
 
-          <p className="auth-link">
+<p className="auth-link">
             New to GROZO? <Link to="/signup">Create an account</Link>
           </p>
 
-          <div className="auth-demo-hint">
-            <strong>Demo accounts</strong>
-            <span>User: rahul@test.com / rahul123</span>
-            <span>Driver: driver@test.com / driver123</span>
-            <span>Admin: admin123 / admin123@gmail.com</span>
-          </div>
         </motion.form>
       </div>
 

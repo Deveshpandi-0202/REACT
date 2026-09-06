@@ -35,6 +35,7 @@ if allowed_origins_raw:
 else:
     allowed_origins = [
         "http://localhost:5173",
+        "http://localhost:5174",
         "http://localhost:8080",
         "https://deveshpandi-0202.github.io",
         "https://blinkit-backend-mg62.onrender.com",
@@ -1050,4 +1051,6 @@ with app.app_context():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(debug=True, host="0.0.0.0", port=port)
+
+
 

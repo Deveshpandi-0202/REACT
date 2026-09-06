@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { HashRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import Navbar from "./components/Navbar";
@@ -233,13 +233,13 @@ function RoutedApp() {
 
 function App() {
   return (
-    <BrowserRouter basename={import.meta.env.PROD ? (import.meta.env.VITE_BASE_PATH || "/REACT") : ""}>
+    <HashRouter>
       <AuthProvider>
         <CartProvider>
           <RoutedApp />
         </CartProvider>
       </AuthProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
