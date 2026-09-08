@@ -4,7 +4,7 @@ import { motion, MotionConfig } from "framer-motion";
 import {
   Truck, MapPin, Loader2, ChevronLeft, Navigation, Clock,
   ShoppingBag, CheckCircle2, Package, RefreshCw, Phone,
-  ShieldCheck, Bike, PackageCheck, Home, ClipboardList,
+  ShieldCheck, Bike, PackageCheck, Home, ClipboardList, User,
 } from "lucide-react";
 import api from "../api/axios";
 
@@ -62,6 +62,20 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function getUserLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 10000, maximumAge: 5000 }
+    );
+  });
+}
+
 function TrackSkeleton() {
   return (
     <div className="track-skel" role="status" aria-label="Loading tracking details">
@@ -101,6 +115,9 @@ export default function TrackOrder() {
   const [refreshKey, setRefreshKey] = useState(0);
   const pollRef = useRef(null);
   const inFlightRef = useRef(false);
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
 
   const applyOrder = useCallback((o) => {
     setOrder(o);
@@ -167,6 +184,18 @@ export default function TrackOrder() {
   const manualRefresh = () => {
     setRefreshing(true);
     setRefreshKey((k) => k + 1);
+  };
+
+  const getLocation = async () => {
+    setLoadingLocation(true);
+    setLocationError(null);
+    const { latitude, longitude } = await getUserLocation();
+    setLoadingLocation(false);
+    if (latitude && longitude) {
+      setUserLocation({ latitude, longitude });
+    } else {
+      setLocationError("Unable to get your location. Please try again or allow location permission.");
+    }
   };
 
   const retry = () => {
@@ -339,15 +368,35 @@ export default function TrackOrder() {
                 <Clock size={16} />
                 <span>Est. by <strong>{eta.value}</strong></span>
               </span>
-              <button
-                className="track-refresh-btn"
-                onClick={manualRefresh}
-                disabled={refreshing}
-                aria-label="Refresh order status"
-                title="Refresh status"
-              >
-                <Loader2 size={15} className={refreshing ? "spin" : ""} />
-              </button>
+              <div className="track-progress-btns">
+              {loadingLocation ? (
+                <span className="track-refresh-btn-loader"><Loader2 size={15} className="spin" /> Locating...</span>
+              ) : locationError ? (
+                <span className="track-location-error">{locationError}</span>
+              ) : userLocation ? (
+                <button
+                  className="track-refresh-btn"
+                  onClick={manualRefresh}
+                  disabled={refreshing}
+                  aria-label="Refresh order status"
+                  title="Refresh status"
+                >
+                  <Loader2 size={15} className={refreshing ? "spin" : ""} />
+                  <span>Refresh</span>
+                </button>
+              ) : (
+                <button
+                  className="track-refresh-btn"
+                  onClick={getLocation}
+                  disabled={loadingLocation}
+                  aria-label="Use my current location"
+                  title="Use my current location"
+                >
+                  <Loader2 size={15} className={loadingLocation ? "spin" : ""} />
+                  <span>{loadingLocation ? "Locating..." : "Use My Current Location"}</span>
+                </button>
+              )}
+            </div>
             </div>
             {renderStepper()}
           </div>
@@ -356,14 +405,16 @@ export default function TrackOrder() {
         <div className="track-layout">
           <div className="track-cards">
             <div className="track-card driver-card">
-              <div className="track-card-title"><Truck size={17} /> Delivery Partner</div>
+              <div className="track-card-title">
+                <Bike size={17} /> Delivery Partner
+              </div>
               {hasDriver ? (
                 <>
                   <div className="driver-detail-row">
                     <div className="driver-avatar">{order.driver_name.charAt(0).toUpperCase()}</div>
                     <div>
                       <strong>{order.driver_name}</strong>
-                      <p className="driver-role-line"><Truck size={13} /> Delivery Partner</p>
+                      <p className="driver-role-line"><Bike size={13} /> Delivery Boy</p>
                     </div>
                   </div>
                   <div className="driver-status-line">
@@ -375,6 +426,11 @@ export default function TrackOrder() {
                       <span className="driver-dist-chip"><MapPin size={13} /> ~{distKm.toFixed(1)} km away</span>
                     )}
                   </div>
+                  {userLocation && (
+                    <div className="driver-location-chip">
+                      <User size={13} /> ~{Math.round(haversine(userLocation.latitude, userLocation.longitude, order.driver_latitude, order.driver_longitude))} km from you
+                    </div>
+                  )}
                 </>
               ) : isDelivered ? (
                 <p className="track-muted">Delivery completed.</p>
