@@ -150,16 +150,16 @@ export default function DriverDashboard() {
       navigator.geolocation.clearWatch(locWatchRef.current);
       locWatchRef.current = null;
     }
-    setLocState("idle");
+    // Location state starts as idle by default
     return () => {
       // cleanup on unmount
       if (locWatchRef.current != null) {
         navigator.geolocation.clearWatch(locWatchRef.current);
         locWatchRef.current = null;
       }
-      setLocState("idle");
+      // Location state starts as idle by default
     };
-  }, [orderStatus]); // re-run when order status changes
+  }, []);
 
   const retry = () => {
     setLoading(true);
@@ -208,7 +208,7 @@ export default function DriverDashboard() {
           navigator.geolocation.clearWatch(locWatchRef.current);
           locWatchRef.current = null;
         }
-        setLocState("idle");
+        // Location state starts as idle by default
       }
     } catch (err) {
       if (err.response?.status === 401) {
@@ -256,7 +256,7 @@ export default function DriverDashboard() {
       },
       () => {
         toast.error("Location permission denied");
-        setLocState("idle");
+        // Location state starts as idle by default
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
@@ -267,7 +267,7 @@ export default function DriverDashboard() {
       },
       () => {
         toast.error("Location tracking stopped");
-        setLocState("idle");
+        // Location state starts as idle by default
       },
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
     );
@@ -278,7 +278,7 @@ export default function DriverDashboard() {
       navigator.geolocation.clearWatch(locWatchRef.current);
       locWatchRef.current = null;
     }
-    setLocState("idle");
+    // Location state starts as idle by default
   };
 
   const startGpsTracking = (orderId) => {
@@ -311,7 +311,7 @@ export default function DriverDashboard() {
         const errMsg = err.code === 1 ? "Location permission denied" : 
                        err.code === 2 ? "Location unavailable" : "Geolocation error";
         toast.error(`GPS error: ${errMsg}`);
-        setLocState("idle");
+        // Location state starts as idle by default
       },
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
     );
