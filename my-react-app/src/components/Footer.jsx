@@ -1,9 +1,6 @@
 import { Link } from "react-router-dom";
 import { ShoppingBasket, Mail, MapPin, Clock } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
-
 export default function Footer() {
-  const { user } = useAuth();
   return (
     <footer className="footer">
       <div className="footer-grid">
@@ -26,9 +23,22 @@ export default function Footer() {
 
         <div className="footer-col">
           <h4>Account</h4>
-          <Link to="/signin">Sign In</Link>
-          <Link to="/signup">Sign Up</Link>
-          {user?.role === "admin" && <Link to="/admin">Admin Panel</Link>}
+
+          <div className="role-group user">
+            <span>User</span>
+            <Link to="/signin">Sign In</Link>
+            <Link to="/signup">Sign Up</Link>
+          </div>
+
+          <div className="role-group admin">
+            <span>Admin</span>
+            <Link to="/signin">Admin Sign In</Link>
+          </div>
+
+          <div className="role-group driver">
+            <span>Driver</span>
+            <Link to="/signin">Driver Sign In</Link>
+          </div>
         </div>
 
         <div className="footer-col">

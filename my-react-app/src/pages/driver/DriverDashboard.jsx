@@ -6,6 +6,7 @@ import {
   Power, PowerOff, Package, RefreshCw, CalendarClock, Hash, Inbox,
 } from "lucide-react";
 import api from "../../api/axios";
+import { io } from "socket.io-client";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { formatINR } from "../../utils/pricing";
@@ -142,6 +143,24 @@ export default function DriverDashboard() {
     loadOrders();
   }, []);
 
+  // GPS tracking lifecycle
+  useEffect(() => {
+    // cleanup previous watcher if exists
+    if (locWatchRef.current != null) {
+      navigator.geolocation.clearWatch(locWatchRef.current);
+      locWatchRef.current = null;
+    }
+    setLocState("idle");
+    return () => {
+      // cleanup on unmount
+      if (locWatchRef.current != null) {
+        navigator.geolocation.clearWatch(locWatchRef.current);
+        locWatchRef.current = null;
+      }
+      setLocState("idle");
+    };
+  }, [orderStatus]); // re-run when order status changes
+
   const retry = () => {
     setLoading(true);
     setError("");
@@ -176,6 +195,21 @@ export default function DriverDashboard() {
       toast.success(TOAST_LABELS[action.to] || "Order updated");
       setAvailability(action.to === "delivered" ? "available" : "busy");
       loadOrders({ silent: true });
+      // Start GPS tracking immediately when order is accepted
+      if (
+        action.endpoint === "accept" &&
+        updated.status === "accepted"
+      ) {
+        startGpsTracking(updated.id);
+      }
+      // Stop GPS tracking when order becomes "delivered"
+      if (action.to === "delivered") {
+        if (locWatchRef.current != null) {
+          navigator.geolocation.clearWatch(locWatchRef.current);
+          locWatchRef.current = null;
+        }
+        setLocState("idle");
+      }
     } catch (err) {
       if (err.response?.status === 401) {
         toast.error("Your session expired. Please sign in again.");
@@ -245,6 +279,42 @@ export default function DriverDashboard() {
       locWatchRef.current = null;
     }
     setLocState("idle");
+  };
+
+  const startGpsTracking = (orderId) => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation not supported");
+      return;
+    }
+    // Cancel any existing watcher
+    if (locWatchRef.current != null) {
+      navigator.geolocation.clearWatch(locWatchRef.current);
+      locWatchRef.current = null;
+    }
+    setLocState("requesting");
+    locWatchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        // Send location through Socket.IO
+        const socket = io();
+        socket.emit("driver_location_update", {
+          orderId,
+          driverId: user?.id,
+          latitude: lat,
+          longitude: lng,
+          timestamp: new Date().toISOString(),
+        });
+        setLocState("on");
+      },
+      (err) => {
+        const errMsg = err.code === 1 ? "Location permission denied" : 
+                       err.code === 2 ? "Location unavailable" : "Geolocation error";
+        toast.error(`GPS error: ${errMsg}`);
+        setLocState("idle");
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    );
   };
 
   useEffect(() => {

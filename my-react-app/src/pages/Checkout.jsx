@@ -24,6 +24,7 @@ function validate(values) {
   if (!values.city.trim()) errors.city = "City is required.";
   if (!/^\d{6}$/.test(values.pincode)) errors.pincode = "Please enter a valid 6-digit pincode.";
   if (!/^\d{10}$/.test(values.phone)) errors.phone = "Please enter a valid phone number.";
+  if (!values.streetArea.trim()) errors.streetArea = "Street / Area is required.";
   return errors;
 }
 
@@ -35,8 +36,9 @@ export default function Checkout() {
 
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState(user?.phone || "");
-  const [city, setCity] = useState("");
+  const [city, setCity] = useState("Chennai");
   const [pincode, setPincode] = useState("");
+  const [streetArea, setStreetArea] = useState("");
   const [payment, setPayment] = useState("cod");
   const [coords, setCoords] = useState(null);
   const [placing, setPlacing] = useState(false);
@@ -62,7 +64,7 @@ export default function Checkout() {
 
   const captureLocation = () => {
     if (!navigator.geolocation) {
-      toast.error("Geolocation not supported");
+      toast.error("Geolocation not supported in this browser");
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -70,7 +72,9 @@ export default function Checkout() {
         setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
         toast.success("Delivery location captured");
       },
-      () => toast.error("Location permission denied"),
+      () => {
+        toast.info("Could not capture location - you can enter address manually");
+      },
       { enableHighAccuracy: true, timeout: 8000 }
     );
   };
@@ -80,13 +84,14 @@ export default function Checkout() {
     if (key === "city") setCity(value);
     if (key === "pincode") setPincode(value);
     if (key === "phone") setPhone(value);
+    if (key === "streetArea") setStreetArea(value);
     setErrors((prev) => (prev[key] ? { ...prev, [key]: "" } : prev));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (placing || placingRef.current) return;
-    const formErrors = validate({ address, city, pincode, phone });
+    const formErrors = validate({ address, city, pincode, phone, streetArea });
     if (Object.keys(formErrors).length > 0) {
       setErrors(formErrors);
       toast.error("Please fix the highlighted fields.");
@@ -100,9 +105,10 @@ export default function Checkout() {
         product_id: i.id,
         quantity: i.quantity,
       }));
+      const fullAddress = `${address} ${streetArea}`.trim();
       const res = await api.post("/orders", {
         items: orderItems,
-        address,
+        address: fullAddress,
         city,
         phone,
         pincode,
@@ -198,7 +204,7 @@ export default function Checkout() {
                 <label htmlFor="checkout-address">Delivery Address <span className="req" aria-hidden="true">*</span></label>
                 <input
                   id="checkout-address"
-                  placeholder="House / street / area"
+                  placeholder="House / Flat / Door No"
                   value={address}
                   onChange={(e) => setField("address", e.target.value)}
                   autoComplete="street-address"
@@ -208,11 +214,24 @@ export default function Checkout() {
                 {fieldError("address")}
               </div>
               <div className="checkout-row">
+                <div className={`checkout-field ${errors.streetArea ? "has-error" : ""}`}>
+                  <label htmlFor="checkout-street">Street / Area <span className="req" aria-hidden="true">*</span></label>
+                  <input
+                    id="checkout-street"
+                    placeholder="Street / Area / Locality"
+                    value={streetArea}
+                    onChange={(e) => setField("streetArea", e.target.value)}
+                    autoComplete="address-level2"
+                    aria-invalid={!!errors.streetArea}
+                    aria-describedby={errors.streetArea ? "checkout-street-err" : undefined}
+                  />
+                  {fieldError("streetArea")}
+                </div>
                 <div className={`checkout-field ${errors.city ? "has-error" : ""}`}>
                   <label htmlFor="checkout-city">City <span className="req" aria-hidden="true">*</span></label>
                   <input
                     id="checkout-city"
-                    placeholder="e.g. Bengaluru"
+                    placeholder="e.g. Chennai"
                     value={city}
                     onChange={(e) => setField("city", e.target.value)}
                     autoComplete="address-level2"
@@ -254,7 +273,7 @@ export default function Checkout() {
               </div>
               <button type="button" className="locate-btn" onClick={captureLocation}>
                 <LocateFixed size={15} />
-                {coords ? "Delivery location captured ✓" : "Use my current location"}
+                {coords ? "Delivery location captured" : "Use my current location"}
               </button>
             </form>
           </div>
@@ -379,3 +398,7 @@ export default function Checkout() {
     </div>
   );
 }
+
+
+
+

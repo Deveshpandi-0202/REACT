@@ -10,6 +10,7 @@ from flask_jwt_extended import (
     jwt_required,
 )
 from flask_sqlalchemy import SQLAlchemy
+from flask_socketio import SocketIO
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
@@ -35,6 +36,7 @@ if allowed_origins_raw:
 else:
     allowed_origins = [
         "http://localhost:5173",
+        "http://172.22.87.187:5173",
         "http://localhost:5174",
         "http://localhost:8080",
         "https://deveshpandi-0202.github.io",
@@ -43,6 +45,7 @@ else:
 CORS(app, origins=allowed_origins)
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
+socketio = SocketIO(app, cors_allowed_origins=allowed_origins)
 
 
 @app.route("/", methods=["GET"])
@@ -687,6 +690,43 @@ def driver_update_location():
     return jsonify(driver.to_dict())
 
 
+@app.route("/api/driver/orders/<int:order_id>/location", methods=["PUT"])
+@jwt_required()
+def driver_update_order_location(order_id):
+    driver = _current_user()
+    if not driver or driver.role != "driver":
+        return jsonify({"error": "Driver access required"}), 403
+    order = Order.query.get_or_404(order_id)
+    if order.driver_id != driver.id:
+        return jsonify({"error": "You are not assigned to this order"}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        lat = float(data.get("latitude"))
+        lng = float(data.get("longitude"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Valid latitude and longitude are required"}), 400
+    if not (-90 <= lat <= 90) or not (-180 <= lng <= 180):
+        return jsonify({"error": "Latitude/longitude out of range"}), 400
+    driver.latitude = lat
+    driver.longitude = lng
+    order.driver_latitude = lat
+    order.driver_longitude = lng
+    db.session.commit()
+    # Emit Socket.IO event to tracking room
+    socketio.emit(
+        "driver_location_update",
+        {
+            "order_id": order.id,
+            "driver_id": driver.id,
+            "latitude": lat,
+            "longitude": lng,
+            "timestamp": db.func.now().isoformat(),
+        },
+        room=f"order_tracking_{order.id}",
+    )
+    return jsonify(driver.to_dict())
+
+
 # ── Admin Order / Driver Management ───────────────────────────────────────────
 
 
@@ -1050,7 +1090,8 @@ with app.app_context():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host="0.0.0.0", port=port)
+    socketio.run(app, debug=True, host="0.0.0.0", port=port)
+
 
 
 

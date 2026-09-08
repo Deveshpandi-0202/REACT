@@ -7,3 +7,4 @@ gunicorn
 psycopg2-binary
 
 msgpack>=1.2.1
+flask-socketio

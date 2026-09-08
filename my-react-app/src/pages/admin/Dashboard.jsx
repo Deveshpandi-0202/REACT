@@ -5,9 +5,11 @@ import {
   Users, Package, ShoppingBag, IndianRupee, Plus, AlertTriangle,
   Pencil, Trash2, LayoutDashboard, Loader2, Search, X, ChevronDown,
   ListChecks, ArrowDown, Bike, Truck, Clock, ChevronLeft, ChevronRight,
+  Eye,
 } from "lucide-react";
 import api from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
+import { FALLBACK_IMG } from "../../components/ProductCard";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -51,7 +53,15 @@ export default function Dashboard({ focusProducts }) {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err.response?.data?.error || "Failed to load dashboard. Is the backend running?");
+        if (!err.response) {
+          setError("Backend server is unreachable. Is the backend running?");
+        } else if (err.response.status === 401) {
+          setError("Admin authentication required. Please log in as admin.");
+        } else if (err.response?.data?.error) {
+          setError(err.response.data.error);
+        } else {
+          setError("Failed to load dashboard. Please try again.");
+        }
         setLoading(false);
       });
     return () => { cancelled = true; };
@@ -252,6 +262,7 @@ export default function Dashboard({ focusProducts }) {
                 <th>Price</th>
                 <th>Stock</th>
                 <th>Actions</th>
+              <th>Image</th>
               </tr>
             </thead>
             <tbody>
@@ -268,13 +279,25 @@ export default function Dashboard({ focusProducts }) {
                     <Link to={`/admin/edit/${p.id}`} className="btn btn-sm btn-primary">
                       <Pencil size={13} /> Edit
                     </Link>
+                    <Link to={`/product/${p.id}`} className="btn btn-sm btn-outline">
+                      <Eye size={13} /> View
+                    </Link>
                 <button
                   onClick={() => setDeleteTarget(p)}
                   className="btn btn-sm btn-danger"
                 >
                   <Trash2 size={13} /> Delete
                 </button>
-                  </td>
+                </td>
+                <td>
+                  <img
+                    src={p.image_url || FALLBACK_IMG}
+                    alt={p.name}
+                    className="admin-product-img"
+                    onError={e => e.target.src = FALLBACK_IMG}
+                    style={{ maxWidth: '80px', height: 'auto' }}
+                  />
+                </td>
                 </tr>
               ))}
             </tbody>
