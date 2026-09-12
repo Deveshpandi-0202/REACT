@@ -25,16 +25,8 @@ export default function Dashboard({ focusProducts }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [page, setPage] = useState(1);
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleting, setDeleting] = useState(false);
   const toast = useToast();
   const productsRef = useRef(null);
-
-  useEffect(() => {
-    if (focusProducts && productsRef.current && !loading) {
-      productsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [focusProducts, loading]);
 
   const scrollToProducts = () => {
     productsRef.current?.scrollIntoView({
@@ -42,6 +34,12 @@ export default function Dashboard({ focusProducts }) {
       block: "start",
     });
   };
+
+  useEffect(() => {
+    if (focusProducts && productsRef.current) {
+      productsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [focusProducts]);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,22 +60,17 @@ export default function Dashboard({ focusProducts }) {
         } else {
           setError("Failed to load dashboard. Please try again.");
         }
-        setLoading(false);
       });
     return () => { cancelled = true; };
   }, []);
 
-  const handleDelete = async (id) => {
-    setDeleting(true);
+const handleDelete = async (id) => {
     try {
       await api.delete(`/products/${id}`);
       setStats((s) => ({ ...s, products: s.products.filter((p) => p.id !== id) }));
       toast.success("Product deleted");
     } catch {
       toast.error("Failed to delete product");
-    } finally {
-      setDeleting(false);
-      setDeleteTarget(null);
     }
   };
 
@@ -262,7 +255,7 @@ export default function Dashboard({ focusProducts }) {
                 <th>Price</th>
                 <th>Stock</th>
                 <th>Actions</th>
-              <th>Image</th>
+                <th>Image</th>
               </tr>
             </thead>
             <tbody>
@@ -282,22 +275,23 @@ export default function Dashboard({ focusProducts }) {
                     <Link to={`/product/${p.id}`} className="btn btn-sm btn-outline">
                       <Eye size={13} /> View
                     </Link>
-                <button
-                  onClick={() => setDeleteTarget(p)}
-                  className="btn btn-sm btn-danger"
-                >
-                  <Trash2 size={13} /> Delete
-                </button>
-                </td>
-                <td>
-                  <img
-                    src={p.image_url || FALLBACK_IMG}
-                    alt={p.name}
-                    className="admin-product-img"
-                    onError={e => e.target.src = FALLBACK_IMG}
-                    style={{ maxWidth: '80px', height: 'auto' }}
-                  />
-                </td>
+                    <button
+                      onClick={() => handleDelete(p.id)}
+                      className="btn btn-sm btn-danger"
+                    >
+                      <Trash2 size={13} /> Delete
+                    </button>
+                  </td>
+                  <td>
+                    <img
+                      src={p.image_url || FALLBACK_IMG}
+                      alt={p.name}
+                      className="admin-product-img"
+                      onError={e => e.target.src = FALLBACK_IMG}
+                      style={{ maxWidth: '80px', height: 'auto' }}
+                      loading="lazy"
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -330,40 +324,6 @@ export default function Dashboard({ focusProducts }) {
           </div>
         )}
       </div>
-
-      {deleteTarget && (
-        <div className="modal-overlay" onClick={() => !deleting && setDeleteTarget(null)}>
-          <div className="modal-box" role="dialog" aria-modal="true" aria-label="Delete product">
-            <h3>Delete Product?</h3>
-            <p>
-              Are you sure you want to delete
-              <br />
-              <strong>&ldquo;{deleteTarget.name}&rdquo;</strong>?
-              <br />
-              This action cannot be undone.
-            </p>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn"
-                disabled={deleting}
-                onClick={() => setDeleteTarget(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn btn-danger"
-                disabled={deleting}
-                onClick={() => handleDelete(deleteTarget.id)}
-              >
-                {deleting ? <Loader2 size={16} className="spin" /> : <Trash2 size={16} />}
-                {deleting ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

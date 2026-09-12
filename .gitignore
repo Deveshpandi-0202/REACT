@@ -9,3 +9,4 @@ __pycache__/
 !.env.production
 
 backend/blinkit.db.backup
+/backend/.env

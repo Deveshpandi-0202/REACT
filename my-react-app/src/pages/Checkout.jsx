@@ -36,7 +36,7 @@ export default function Checkout() {
 
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState(user?.phone || "");
-  const [city, setCity] = useState("Chennai");
+  const [city, setCity] = useState("");
   const [pincode, setPincode] = useState("");
   const [streetArea, setStreetArea] = useState("");
   const [payment, setPayment] = useState("cod");
@@ -47,6 +47,7 @@ export default function Checkout() {
   const [placedOrderId, setPlacedOrderId] = useState(null);
   const [placedTotal, setPlacedTotal] = useState(0);
   const [errors, setErrors] = useState({});
+  const [isLocating, setIsLocating] = useState(false);
 
   const { itemsCount, subtotal, savings, deliveryFee, total } = computeSummary(items);
 
@@ -62,21 +63,99 @@ export default function Checkout() {
     );
   }
 
-  const captureLocation = () => {
+  const captureLocation = async () => {
+    if (isLocating) return;
+    setIsLocating(true);
+    let detAddress = "", detStreet = "", detCity = "", detPincode = "";
     if (!navigator.geolocation) {
       toast.error("Geolocation not supported in this browser");
+      setIsLocating(false);
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
-        toast.success("Delivery location captured");
-      },
-      () => {
-        toast.info("Could not capture location - you can enter address manually");
-      },
-      { enableHighAccuracy: true, timeout: 8000 }
-    );
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (p) => resolve(p),
+          (err) => reject(err),
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      });
+      const { latitude, longitude } = pos.coords;
+      setCoords({ latitude, longitude });
+      // Reverse geocoding only runs if geolocation SUCCEEDED
+      const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=en`;
+      const res = await fetch(nominatimUrl, { headers: { 'User-Agent': 'GROZO/1.0' } });
+      if (!res.ok) throw new Error("Geocoding request failed");
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const displayName = data.display_name || "";
+      const addr = data.address || {};
+      const parts = displayName.split(",");
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i].trim();
+        if (!p) continue;
+        if (!detCity && /^[A-Za-z\s]+$/.test(p) && !/^\d/.test(p) && p.length > 1) {
+          detCity = p;
+        }
+        if (!detStreet && detStreet === "") {
+          if (/^[\w\s\d\-/]+$/.test(p) || p.includes("Street") || p.includes("Road") || p.includes("Avenue") || p.includes("Boulevard")) {
+            detStreet = p;
+          }
+        }
+        if (!detPincode && /^\d{5,10}$/.test(p)) {
+          detPincode = p;
+        }
+        if (!detAddress && !detStreet && p.length > 3) {
+          detAddress = p;
+        }
+      }
+      if (!detCity) {
+        const cityVal = addr.city || addr.town || addr.village || addr.metro || "";
+        if (cityVal && !/^\d/.test(cityVal) && cityVal.length > 1) detCity = cityVal;
+      }
+      if (!detPincode) {
+        const pincodeVal = addr.postcode || addr.code || "";
+        if (pincodeVal) detPincode = pincodeVal;
+      }
+      if (!detAddress && detStreet) detAddress = detStreet;
+      if (!detAddress) detAddress = displayName;
+      setAddress(detAddress);
+      setStreetArea(detStreet || "");
+      setCity(detCity || "");
+      setPincode(detPincode || "");
+      toast.success("Location added");
+    } catch (err) {
+      console.error("Geolocation error:", err);
+      // Handle specific geolocation error codes
+      if (err.code !== undefined) {
+        // This is a geolocation error (getCurrentPosition failed)
+        if (err.code === 1) {
+          toast.error("Location permission denied. Please allow geolocation in your browser settings. This app requires HTTPS or localhost for geolocation to work.");
+        } else if (err.code === 2) {
+          toast.error("Location unavailable. GPS signal may be off or network is limited.");
+        } else if (err.code === 3) {
+          toast.error("Geolocation timed out. Please try again with a clear view of the sky.");
+        } else {
+          toast.error("Geolocation error: " + (err.message || "Unknown error"));
+        }
+      } else {
+        // This is a fetch/geocoding error (reverse geocoding failed after good GPS fix)
+        if (err.response && err.response.data && err.response.data.address) {
+          const addr = err.response.data.address;
+          if (!detCity && (addr.city || addr.town || addr.village || addr.metro)) {
+            detCity = addr.city || addr.town || addr.village || addr.metro;
+            setCity(detCity);
+          }
+          if (!detPincode && (addr.postcode || addr.code)) {
+            detPincode = addr.postcode || addr.code;
+            setPincode(detPincode);
+          }
+        }
+        toast.error("Could not detect location. Please enter address manually.");
+      }
+    } finally {
+      setIsLocating(false);
+    }
   };
 
   const setField = (key, value) => {
@@ -271,9 +350,9 @@ export default function Checkout() {
                 />
                 {fieldError("phone")}
               </div>
-              <button type="button" className="locate-btn" onClick={captureLocation}>
+              <button type="button" className="locate-btn" onClick={captureLocation} disabled={isLocating}>
                 <LocateFixed size={15} />
-                {coords ? "Delivery location captured" : "Use my current location"}
+                {isLocating ? "Detecting location…" : (coords ? "Delivery location captured" : "Use my current location")}
               </button>
             </form>
           </div>

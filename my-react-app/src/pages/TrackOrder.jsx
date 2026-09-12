@@ -7,6 +7,7 @@ import {
   ShieldCheck, Bike, PackageCheck, Home, ClipboardList, User,
 } from "lucide-react";
 import api from "../api/axios";
+import { io } from "socket.io-client";
 
 const FLOW = ["pending", "confirmed", "preparing", "ready_for_pickup", "assigned", "accepted", "picked_up", "out_for_delivery", "delivered"];
 
@@ -45,7 +46,6 @@ const PRE_ICON = {
   ready_for_pickup: PackageCheck,
 };
 
-const POLL_MS = 5000;
 const TERMINAL_STATUSES = ["delivered", "cancelled"];
 
 function formatINR(n) {
@@ -113,25 +113,28 @@ export default function TrackOrder() {
   const [distKm, setDistKm] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const pollRef = useRef(null);
+  
   const inFlightRef = useRef(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [locationError, setLocationError] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const [driverPosition, setDriverPosition] = useState(null);
 
   const applyOrder = useCallback((o) => {
     setOrder(o);
     setError(null);
-    if (o.driver_latitude != null && o.driver_longitude != null) {
-      if (o.latitude != null && o.longitude != null) {
-        setDistKm(haversine(o.driver_latitude, o.driver_longitude, o.latitude, o.longitude));
-      } else {
-        setDistKm(null);
-      }
+    const lat = o.driver_latitude != null && o.driver_longitude != null
+      ? driverPosition?.latitude ?? o.driver_latitude
+      : null;
+    const lng = o.driver_latitude != null && o.driver_longitude != null
+      ? driverPosition?.longitude ?? o.driver_longitude
+      : null;
+    if (lat != null && o.latitude != null && o.longitude != null) {
+      setDistKm(haversine(lat, lng, o.latitude, o.longitude));
     } else {
       setDistKm(null);
     }
-  }, []);
+  }, [driverPosition]);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,8 +147,7 @@ export default function TrackOrder() {
         if (cancelled) return;
         applyOrder(res.data);
         if (TERMINAL_STATUSES.includes(res.data.status)) {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
+          // terminal status reached - no need for further polling
         }
       } catch (err) {
         if (cancelled) return;
@@ -159,10 +161,6 @@ export default function TrackOrder() {
         } else {
           setError(buildError("network", "Couldn't load your order. Check your connection and try again."));
         }
-        if (status === 401 || status === 403 || status === 404 || status === 422) {
-          clearInterval(pollRef.current);
-          pollRef.current = null;
-        }
       } finally {
         if (!cancelled) setLoading(false);
         inFlightRef.current = false;
@@ -170,16 +168,89 @@ export default function TrackOrder() {
     };
 
     fetchOrder();
-    pollRef.current = setInterval(fetchOrder, POLL_MS);
 
     return () => {
       cancelled = true;
-      clearInterval(pollRef.current);
-      pollRef.current = null;
       inFlightRef.current = false;
       setRefreshing(false);
     };
   }, [orderId, refreshKey, applyOrder]);
+
+useEffect(() => {
+    if (!orderId) return;
+
+    // Determine Socket.IO URL: strip /api from VITE_API_URL if present
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    let socketUrl = apiUrl;
+    if (socketUrl.endsWith("/api")) {
+      socketUrl = socketUrl.slice(0, -4);
+    }
+
+    const token = localStorage.getItem("token");
+    const socket = io(socketUrl, {
+      auth: {
+        token: token
+      }
+    });
+
+    const setupTracking = async () => {
+      try {
+        const res = await api.get(`/orders/${orderId}`);
+        const status = res.data.status;
+
+        // Determine if we should join tracking room and listen for location updates
+        const isTrackingStatus = ["accepted", "picked_up", "out_for_delivery"].includes(status);
+
+        if (isTrackingStatus) {
+          // Join the order tracking room
+          socket.emit("join_tracking_room", { orderId });
+
+          // Listen for driver location updates from Socket.IO
+          socket.on("driver_location_update", (data) => {
+            setDriverPosition({
+              latitude: data.latitude,
+              longitude: data.longitude,
+            });
+          });
+
+          // Initialize driver position from stored coordinates if available
+          if (res.data.driver_latitude != null && res.data.driver_longitude != null) {
+            setDriverPosition({
+              latitude: res.data.driver_latitude,
+              longitude: res.data.driver_longitude,
+            });
+          } else if (driverPosition == null) {
+            // If no driver GPS yet, try to set from order data
+            setDriverPosition({
+              latitude: res.data.driver_latitude,
+              longitude: res.data.driver_longitude,
+            });
+          }
+        }
+        // If driver hasn't accepted yet, we do NOT join the tracking room
+        // and do NOT listen for location updates - customer sees "Waiting for driver"
+        // status instead of live location.
+      } catch (err) {
+        console.error("Failed to set up tracking:", err);
+      }
+    };
+
+    setupTracking();
+
+    // Cleanup on unmount or order change
+    return () => {
+      inFlightRef.current = false;
+      setRefreshing(false);
+      // Only leave tracking room if we joined it
+      try {
+        socket.emit("leave_tracking_room", { orderId });
+      } catch {
+        // Ignore errors during cleanup
+      }
+      socket.off("driver_location_update");
+      socket.disconnect();
+    };
+  }, [orderId, driverPosition]);
 
   const manualRefresh = () => {
     setRefreshing(true);
@@ -248,7 +319,6 @@ export default function TrackOrder() {
   const isDelivered = order.status === "delivered";
   const isCancelled = order.status === "cancelled";
   const preDelivery = FLOW.indexOf(order.status) < FLOW.indexOf("assigned");
-  const hasDriver = Boolean(order.driver_name);
   const hasCoordinate = order.driver_latitude != null && order.driver_longitude != null;
   const driverIdx = CUSTOMER_FLOW.indexOf(order.status);
 
@@ -408,7 +478,7 @@ export default function TrackOrder() {
               <div className="track-card-title">
                 <Bike size={17} /> Delivery Partner
               </div>
-              {hasDriver ? (
+              {driverPosition != null ? (
                 <>
                   <div className="driver-detail-row">
                     <div className="driver-avatar">{order.driver_name.charAt(0).toUpperCase()}</div>
@@ -455,10 +525,12 @@ export default function TrackOrder() {
             {!isDelivered && (
               <div className="track-card">
                 <div className="track-card-title"><MapPin size={17} /> Live Location</div>
-                {hasCoordinate ? (
+{driverPosition != null ? (
                   <div className="track-live-location" role="status">
                     <div className="track-live-row">
-                      <span className="live-dot" aria-hidden="true" />
+                      <span className="live-dot driver-icon" aria-hidden="true">
+                        <Bike size={18} />
+                      </span>
                       <span>Live delivery location available</span>
                     </div>
                     <p className="track-muted">

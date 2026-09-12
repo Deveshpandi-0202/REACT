@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Truck, ShoppingBag, CheckCircle2, Loader2, ChevronDown, MapPin,
   Phone, PackageCheck, Bike, Clock, Navigation, LogIn, CheckCheck,
-  Power, PowerOff, Package, RefreshCw, CalendarClock, Hash, Inbox,
+  Power, PowerOff, Package, RefreshCw, CalendarClock, Hash, Inbox, User,
 } from "lucide-react";
+import { MapContainer, TileLayer, Marker, Polyline, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import api from "../../api/axios";
-import { io } from "socket.io-client";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { formatINR } from "../../utils/pricing";
@@ -112,6 +113,7 @@ export default function DriverDashboard() {
   const [openId, setOpenId] = useState(null);
   const [updatingId, setUpdatingId] = useState(null);
   const updatingRef = useRef(false);
+  const lastSentRef = useRef({ latitude: null, longitude: null });
   const [refresh, setRefresh] = useState(false);
   const [availability, setAvailability] = useState(user?.availability ?? "available");
   const [availabilityBusy, setAvailabilityBusy] = useState(false);
@@ -238,8 +240,19 @@ export default function DriverDashboard() {
     }
   };
 
-  const pushLocation = (lat, lng) => {
-    api.put("/driver/location", { latitude: lat, longitude: lng }).catch(() => {});
+  const pushLocation = (lat, lng, orderId) => {
+    const lastSent = lastSentRef.current;
+    if (lastSent.latitude !== null && lastSent.longitude !== null) {
+      const latChanged = Math.abs(lat - lastSent.latitude) > 0.0001;
+      const lngChanged = Math.abs(lng - lastSent.longitude) > 0.0001;
+      if (!latChanged && !lngChanged) return;
+    }
+    lastSentRef.current = { latitude: lat, longitude: lng };
+    if (orderId) {
+      api.put(`/driver/orders/${orderId}/location`, { latitude: lat, longitude: lng }).catch(() => {});
+    } else {
+      api.put("/driver/location", { latitude: lat, longitude: lng }).catch(() => {});
+    }
   };
 
   const startSharing = () => {
@@ -248,14 +261,21 @@ export default function DriverDashboard() {
       return;
     }
     setLocState("requesting");
+    // Cancel any existing watcher first
+    if (locWatchRef.current != null) {
+      navigator.geolocation.clearWatch(locWatchRef.current);
+      locWatchRef.current = null;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         pushLocation(pos.coords.latitude, pos.coords.longitude);
         toast.success("Location sharing started");
         setLocState("on");
       },
-      () => {
-        toast.error("Location permission denied");
+      (err) => {
+        const errMsg = err.code === 1 ? "Location permission denied" : 
+                       err.code === 2 ? "Location unavailable" : "Geolocation error";
+        toast.error(`GPS error: ${errMsg}`);
         // Location state starts as idle by default
       },
       { enableHighAccuracy: true, timeout: 8000 }
@@ -265,8 +285,10 @@ export default function DriverDashboard() {
         pushLocation(pos.coords.latitude, pos.coords.longitude);
         setLocState("on");
       },
-      () => {
-        toast.error("Location tracking stopped");
+      (err) => {
+        const errMsg = err.code === 1 ? "Location permission denied" : 
+                       err.code === 2 ? "Location unavailable" : "Geolocation error";
+        toast.error(`GPS error: ${errMsg}`);
         // Location state starts as idle by default
       },
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
@@ -296,15 +318,8 @@ export default function DriverDashboard() {
       (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-        // Send location through Socket.IO
-        const socket = io();
-        socket.emit("driver_location_update", {
-          orderId,
-          driverId: user?.id,
-          latitude: lat,
-          longitude: lng,
-          timestamp: new Date().toISOString(),
-        });
+        // Send location through the backend endpoint (which updates DB + emits Socket.IO)
+        pushLocation(lat, lng, orderId);
         setLocState("on");
       },
       (err) => {
@@ -399,6 +414,7 @@ export default function DriverDashboard() {
           </span>
           <button
             className={`dp-loc-btn ${locState === "on" ? "on" : ""}`}
+            disabled={locState === "on"}
             onClick={locState === "on" ? stopSharing : startSharing}
             aria-pressed={locState === "on"}
             aria-label={locState === "on" ? "Stop sharing location" : "Share your location"}
@@ -529,6 +545,54 @@ export default function DriverDashboard() {
               </span>
               <span className="dp-active-total">{formatINR(activeOrder.total_amount)}</span>
             </div>
+
+            {activeOrder.status !== "delivered" && activeOrder.status !== "cancelled" ? (
+              <div className="dp-map-container">
+                <MapContainer
+                  center={[activeOrder.driver_latitude || 0, activeOrder.driver_longitude || 0]}
+                  zoom={15}
+                  className="dp-map"
+                  style={{ height: "220px", width: "100%" }}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  {/* Route line from driver to customer delivery location */}
+                  {activeOrder.latitude && activeOrder.longitude ? (
+                    <Polyline
+                      positions={[
+                        [activeOrder.driver_latitude || 0, activeOrder.driver_longitude || 0],
+                        [activeOrder.latitude, activeOrder.longitude],
+                      ]}
+                      color="#6366f1"
+                      weight={5}
+                      opacity={0.8}
+                    />
+                  ) : null}
+                  {/* Driver marker (bike icon) at current GPS position */}
+                  {locState === "on" && activeOrder.driver_latitude && activeOrder.driver_longitude ? (
+                    <Marker
+                      position={[activeOrder.driver_latitude, activeOrder.driver_longitude]}
+                      icon={Bike}
+                      className="dp-driver-marker"
+                    >
+                      <Popup>Driver</Popup>
+                    </Marker>
+                  ) : null}
+                  {/* Customer marker at delivery location */}
+                  {activeOrder.latitude && activeOrder.longitude ? (
+                    <Marker
+                      position={[activeOrder.latitude, activeOrder.longitude]}
+                      icon={User}
+                      className="dp-customer-marker"
+                    >
+                      <Popup>Delivery</Popup>
+                    </Marker>
+                  ) : null}
+                </MapContainer>
+              </div>
+            ) : null}
 
             <div className="dp-active-address">
               <span className="dp-addr-icon">

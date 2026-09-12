@@ -50,7 +50,6 @@ function ScrollToTop() {
 function RoleHome() {
   const { user } = useAuth();
   if (!user) return <Navigate to="/signin" replace />;
-  if (user.role === "admin") return <Navigate to="/admin" replace />;
   if (user.role === "driver") return <Navigate to="/driver" replace />;
   return <Home />;
 }

@@ -9,12 +9,15 @@ services:
     environment:
       - PORT=5000
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-grocerapp-jwt-secret-key-change-in-production-2024}
-      - DATABASE_URL=${DATABASE_URL:-sqlite:////app/data/blinkit.db}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:5173,http://localhost:8080}
     volumes:
       - backend-data:/app/data
     expose:
       - "5000"
+    env_file:
+      - ./backend/.env
+    ports:
+      - "5000:5000"
 
   frontend:
     image: deveshpandi0202/grocerapp-frontend:latest

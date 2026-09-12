@@ -21,7 +21,7 @@ export default function SplashScreen({ onDone }) {
     }, 550);
 
     return () => clearTimeout(t);
-  }, [exit, onDone]);
+  }, [exit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <motion.div

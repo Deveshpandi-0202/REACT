@@ -1,7 +1,12 @@
 import os
+from dotenv import load_dotenv
 from datetime import timedelta
 
-from flask import Flask, jsonify, request
+load_dotenv()
+
+import jwt as pyjwt
+
+from flask import Flask, jsonify, request, current_app
 from flask_cors import CORS
 from flask_jwt_extended import (
     JWTManager,
@@ -10,7 +15,7 @@ from flask_jwt_extended import (
     jwt_required,
 )
 from flask_sqlalchemy import SQLAlchemy
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, emit, join_room, leave_room
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
@@ -36,9 +41,11 @@ if allowed_origins_raw:
 else:
     allowed_origins = [
         "http://localhost:5173",
+        "http://10.49.69.187:5173",
         "http://172.22.87.187:5173",
         "http://localhost:5174",
         "http://localhost:8080",
+        "https://10.49.69.187:5173",
         "https://deveshpandi-0202.github.io",
         "https://blinkit-backend-mg62.onrender.com",
     ]
@@ -120,6 +127,7 @@ class Product(db.Model):
     image_url = db.Column(db.String(500), default="")
     category = db.Column(db.String(100), nullable=False)
     stock = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     def to_dict(self):
@@ -134,6 +142,7 @@ class Product(db.Model):
             "image_url": self.image_url,
             "category": self.category,
             "stock": self.stock,
+            "is_active": self.is_active,
         }
 
 
@@ -261,6 +270,7 @@ def get_products():
         query = query.filter_by(category=category)
     if search:
         query = query.filter(Product.name.ilike(f"%{search}%"))
+    query = query.limit(50)
     return jsonify([p.to_dict() for p in query.all()])
 
 
@@ -343,9 +353,9 @@ def delete_product(product_id):
         return jsonify({"error": "Admin access required"}), 403
 
     product = Product.query.get_or_404(product_id)
-    db.session.delete(product)
+    product.is_active = False
     db.session.commit()
-    return jsonify({"message": "Product deleted"})
+    return jsonify({"message": "Product deactivated"})
 
 
 # ── Category Route ────────────────────────────────────────────────────────────
@@ -881,11 +891,9 @@ def admin_stats():
     total_orders = Order.query.count()
     total_drivers = User.query.filter_by(role="driver").count()
 
+    # Combined active deliveries + pending orders in fewer queries
     active_deliveries = Order.query.filter(
         Order.status.in_(["assigned", "picked_up", "out_for_delivery"])
-    ).count()
-    available_drivers = User.query.filter_by(
-        role="driver", is_active=True, availability="available"
     ).count()
     pending_orders = Order.query.filter(
         Order.status.in_(["pending", "confirmed", "preparing", "ready_for_pickup"])
@@ -894,6 +902,7 @@ def admin_stats():
         func.coalesce(func.sum(Order.total_amount), 0.0)
     ).scalar()
 
+    # Category counts - single grouped query
     category_counts = (
         db.session.query(Product.category, func.count(Product.id))
         .group_by(Product.category)
@@ -901,6 +910,7 @@ def admin_stats():
     )
     by_category = [{"category": c, "count": int(n)} for c, n in category_counts]
 
+    # Status counts - single grouped query
     status_counts = (
         db.session.query(Order.status, func.count(Order.id))
         .group_by(Order.status)
@@ -908,9 +918,12 @@ def admin_stats():
     )
     by_status = [{"status": s, "count": int(n)} for s, n in status_counts]
 
-    low_stock = Product.query.filter(Product.stock <= 10).order_by(Product.stock.asc()).all()
+    # Low stock - limited to 5 lowest items
+    low_stock = Product.query.filter(Product.stock <= 10) \
+        .order_by(Product.stock.asc()).limit(5).all()
     low_stock_products = [p.to_dict() for p in low_stock]
 
+    # Recent orders - limited to 5
     recent_orders = Order.query.order_by(Order.created_at.desc()).limit(5).all()
     recent = [o.to_dict() for o in recent_orders]
 
@@ -920,7 +933,9 @@ def admin_stats():
         "total_orders": total_orders,
         "total_drivers": total_drivers,
         "active_deliveries": active_deliveries,
-        "available_drivers": available_drivers,
+        "available_drivers": User.query.filter_by(
+            role="driver", is_active=True, availability="available"
+        ).count(),
         "pending_orders": pending_orders,
         "revenue": round(orders_summary, 2),
         "by_category": by_category,
@@ -971,9 +986,11 @@ def delete_user(user_id):
     if user.role == "admin":
         return jsonify({"error": "Cannot delete admin accounts"}), 400
 
-    db.session.delete(user)
+    # Soft-delete: deactivate user instead of hard delete
+    # This preserves historical order data and avoids FK constraint violations
+    user.is_active = False
     db.session.commit()
-    return jsonify({"message": "User deleted"})
+    return jsonify({"message": "User deactivated"})
 
 
 # ── Init ──────────────────────────────────────────────────────────────────────
@@ -1087,6 +1104,92 @@ with app.app_context():
             db.session.commit()
         except Exception:
             db.session.rollback()
+
+@socketio.on("join_tracking_room")
+def handle_join_tracking_room(data):
+    order_id = data.get("orderId")
+    if not order_id:
+        return jsonify({"error": "Invalid data"}), 400
+    order = Order.query.get_or_404(order_id)
+
+    # Verify JWT from Socket.IO auth parameter
+    token = None
+    try:
+        token = getattr(socket, 'auth', {}).get('token') if hasattr(socket, 'auth') else None
+    except Exception:
+        pass
+
+    if not token:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:]
+
+    if not token:
+        return jsonify({"error": "Unauthorized - no JWT provided"}), 401
+
+    # Verify JWT using PyJWT (same secret as Flask-JWT-Extended)
+    try:
+        secret_key = app.config.get('JWT_SECRET_KEY') or app.config.get('SECRET_KEY')
+        identity = pyjwt.decode(token, secret_key, algorithms=['HS256']).get('sub')
+        if not identity:
+            return jsonify({"error": "Unauthorized - invalid token payload"}), 401
+        requester = User.query.get(int(identity))
+    except Exception:
+        return jsonify({"error": "Unauthorized - invalid JWT"}), 401
+
+    if not requester:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    is_owner = order.user_id == requester.id
+    is_admin = requester.role == "admin"
+    is_driver = requester.role == "driver" and order.driver_id == requester.id
+    if not (is_owner or is_admin or is_driver):
+        return jsonify({"error": "You are not authorized to track this order"}), 403
+    socketio.join_room(f"order_tracking_{order_id}")
+
+
+@socketio.on("leave_tracking_room")
+def handle_leave_tracking_room(data):
+    order_id = data.get("orderId")
+    if not order_id:
+        return jsonify({"error": "Invalid data"}), 400
+    order = Order.query.get_or_404(order_id)
+
+    # Verify JWT from Socket.IO auth parameter
+    token = None
+    try:
+        token = getattr(socket, 'auth', {}).get('token') if hasattr(socket, 'auth') else None
+    except Exception:
+        pass
+
+    if not token:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:]
+
+    if not token:
+        return jsonify({"error": "Unauthorized - no JWT provided"}), 401
+
+    # Verify JWT using PyJWT (same secret as Flask-JWT-Extended)
+    try:
+        secret_key = app.config.get('JWT_SECRET_KEY') or app.config.get('SECRET_KEY')
+        identity = pyjwt.decode(token, secret_key, algorithms=['HS256']).get('sub')
+        if not identity:
+            return jsonify({"error": "Unauthorized - invalid token payload"}), 401
+        requester = User.query.get(int(identity))
+    except Exception:
+        return jsonify({"error": "Unauthorized - invalid JWT"}), 401
+
+    if not requester:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    is_owner = order.user_id == requester.id
+    is_admin = requester.role == "admin"
+    is_driver = requester.role == "driver" and order.driver_id == requester.id
+    if not (is_owner or is_admin or is_driver):
+        return jsonify({"error": "You are not authorized to leave this tracking room"}), 403
+    socketio.leave_room(f"order_tracking_{order_id}")
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

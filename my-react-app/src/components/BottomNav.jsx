@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Home, Package, LayoutGrid, User } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
-const MotionNavLink = motion(NavLink);
+const MotionNavLink = motion.create(NavLink);
 
 export default function BottomNav() {
   const { user } = useAuth();

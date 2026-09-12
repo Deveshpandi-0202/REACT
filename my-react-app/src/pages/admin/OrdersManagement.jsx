@@ -1,70 +1,255 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingBag, Loader2, ChevronDown, Truck, MapPin, Search, X } from "lucide-react";
+import {
+  ShoppingBag,
+  ChevronDown,
+  Truck,
+  MapPin,
+  Search,
+  X,
+  Bike,
+  User,
+} from "lucide-react";
 import api from "../../api/axios";
-import { useToast } from "../../context/ToastContext";
+import { useAuth } from "../../context/AuthContext";
+import { io } from "socket.io-client";
+import { MapContainer, TileLayer, Marker, Polyline, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 
 function humanize(status) {
-  return (status || "").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const s = (status || "").replace(/_/g, " ");
+  let result = "";
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (i === 0 || s[i - 1] === " ") {
+      result += c.toUpperCase();
+    } else {
+      result += c;
+    }
+  }
+  return result;
 }
-
-const ASSIGNABLE = ["pending", "confirmed", "preparing", "ready_for_pickup"];
 
 const ALL_STATUSES = [
   "pending", "confirmed", "preparing", "ready_for_pickup",
   "assigned", "picked_up", "out_for_delivery", "delivered", "cancelled",
 ];
 
-export default function OrdersManagement() {
-  const [orders, setOrders] = useState([]);
-  const [drivers, setDrivers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [openId, setOpenId] = useState(null);
-  const [selectedDriver, setSelectedDriver] = useState({});
-  const [statusFilter, setStatusFilter] = useState("");
-  const [search, setSearch] = useState("");
-  const toast = useToast();
+function LiveTrackingMap({ order }) {
+  const { user } = useAuth();
+  const [driverPos, setDriverPos] = useState(null);
+  const socketRef = useRef(null);
+  const listenerRef = useRef(null);
 
   useEffect(() => {
-    Promise.all([api.get("/admin/orders"), api.get("/admin/drivers")])
-      .then(([oRes, dRes]) => {
-        setOrders(oRes.data || []);
-        setDrivers(dRes.data || []);
-      })
-      .catch((err) => setError(err.response?.data?.error || "Failed to load orders"))
-      .finally(() => setLoading(false));
+    const canTrack =
+      order.status !== "delivered" &&
+      order.status !== "cancelled" &&
+      order.driver_name;
+
+    if (canTrack) {
+      if (socketRef.current?.connected && socketRef.current.orderId === order.id) {
+        return;
+      }
+
+      if (socketRef.current) {
+try {
+          socketRef.current.disconnect();
+        } catch {
+          /* empty */
+        }
+        socketRef.current = null;
+      }
+      if (listenerRef.current) {
+        socketRef.current?.off("driver_location_update");
+        listenerRef.current = null;
+      }
+
+      const token = user?.token || localStorage.getItem("token");
+      if (!token) {
+        return;
+      }
+
+      socketRef.current = io(
+        import.meta.env.VITE_API_URL || "http://localhost:5000/api",
+        {
+          auth: { token },
+        }
+      );
+
+      socketRef.current.emit("join_tracking_room", { orderId: order.id });
+
+      socketRef.current.on("driver_location_update", (data) => {
+        setDriverPos({
+          latitude: data.latitude,
+          longitude: data.longitude,
+        });
+      });
+
+      listenerRef.current = () => {
+        if (socketRef.current) {
+          socketRef.current.emit(
+            "leave_tracking_room",
+            { orderId: order.id }
+          );
+          socketRef.current.disconnect();
+          socketRef.current = null;
+        }
+      };
+
+      return () => {
+        if (listenerRef.current) {
+          listenerRef.current();
+          listenerRef.current = null;
+        }
+      };
+    }
+  }, [order.id, user?.token, order.status, order.driver_name]);
+
+  useEffect(() => {
+    return () => {
+      if (listenerRef.current) {
+        listenerRef.current();
+      }
+    };
   }, []);
 
-  const assign = async (orderId) => {
-    const driverId = selectedDriver[orderId];
-    if (!driverId) {
-      toast.error("Select a driver first");
-      return;
-    }
-    try {
-      const res = await api.put(`/admin/orders/${orderId}/assign-driver`, { driver_id: driverId });
-      setOrders((prev) => prev.map((o) => (o.id === res.data.id ? res.data : o)));
-      toast.success("Driver assigned successfully");
-    } catch (err) {
-      toast.error(err.response?.data?.error || "Failed to assign driver");
-    }
+  if (!order.driver_name) {
+    return null;
+  }
+
+  const statusLabels = {
+    assigned: "Driver Assigned",
+    accepted: "Driver Accepted",
+    picked_up: "Picked Up",
+    out_for_delivery: "Out for Delivery",
+    delivered: "Delivered",
+    cancelled: "Cancelled",
   };
 
-  const updateStatus = async (order, e) => {
-    const newStatus = e.target.value;
-    if (!newStatus || newStatus === order.status) return;
-    try {
-      const res = await api.put(`/admin/orders/${order.id}/status`, { status: newStatus });
-      setOrders((prev) => prev.map((o) => (o.id === res.data.id ? res.data : o)));
-      toast.success(`Order #${order.id} marked ${humanize(newStatus)}`);
-    } catch (err) {
-      toast.error(err.response?.data?.error || "Failed to update order status");
-    }
-  };
+  const humanStatus = statusLabels[order.status] || order.status;
 
-  if (loading) return <div className="loading"><Loader2 size={24} className="spin" /> Loading orders...</div>;
-  if (error && orders.length === 0) return <div className="error-msg">{error}</div>;
+  if (driverPos === null) {
+    return (
+      <div className="live-tracking-state">
+        <span className="live-dot" aria-hidden="true" />
+        <span>Waiting for driver's live location…</span>
+      </div>
+    );
+  }
+
+  if (!order.delivery_address && !order.latitude && !order.longitude) {
+    return null;
+  }
+
+  return (
+    <MapContainer
+      center={driverPos ? [driverPos.latitude, driverPos.longitude] : [order.driver_latitude || 0, order.driver_longitude || 0]}
+      zoom={15}
+      className="admin-live-tracking-map"
+      style={{ height: "400px", width: "100%" }}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+
+      {order.driver_latitude != null && order.driver_longitude != null && order.latitude != null && order.longitude != null && (
+        <Polyline
+          positions={[
+            [order.driver_latitude, order.driver_longitude],
+            [order.latitude, order.longitude],
+          ]}
+          color="#6366f1"
+          weight={5}
+          opacity={0.8}
+        />
+      )}
+
+      {driverPos ? (
+        <Marker
+          position={[driverPos.latitude, driverPos.longitude]}
+          icon={Bike}
+          className="admin-driver-marker"
+        >
+          <Popup>
+            <div>
+              <strong>{order.driver_name}</strong><br />
+              Lat: {driverPos.latitude.toFixed(4)}, Lng: {driverPos.longitude.toFixed(4)}
+            </div>
+          </Popup>
+        </Marker>
+      ) : null}
+
+      {order.latitude != null && order.longitude != null ? (
+        <Marker
+          position={[order.latitude, order.longitude]}
+          icon={User}
+          className="admin-customer-marker"
+        >
+          <Popup>
+            <div>
+              <strong>Delivery Location</strong><br />
+              {order.delivery_address}{order.delivery_city ? `, ${order.delivery_city}` : ""}
+            </div>
+          </Popup>
+        </Marker>
+      ) : null}
+
+      <div className="admin-tracking-info">
+        <div className="info-row">
+          <span className="info-label">Order</span>
+          <span>{`#${order.id}`}</span>
+        </div>
+        <div className="info-row">
+          <span className="info-label">Driver</span>
+          <span>{order.driver_name}</span>
+        </div>
+        <div className="info-row">
+          <span className="info-label">Status</span>
+          <span>{humanStatus}</span>
+        </div>
+        <div className="info-row">
+          <span className="info-label">Driver GPS</span>
+          <span>
+            {driverPos.latitude.toFixed(4)}, {driverPos.longitude.toFixed(4)}
+          </span>
+        </div>
+        {order.latitude != null && order.longitude != null ? (
+          <div className="info-row">
+            <span className="info-label">Delivery Location</span>
+            <span>
+              {order.latitude.toFixed(4)}, {order.longitude.toFixed(4)}
+            </span>
+          </div>
+        ) : null}
+      </div>
+    </MapContainer>
+  );
+}
+
+export default function OrdersManagement() {
+  const [orders, setOrders] = useState([]);
+  const [error, setError] = useState("");
+  const [openId, setOpenId] = useState(null);
+  const [trackingOrderId, setTrackingOrderId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    Promise.all([api.get("/admin/orders")])
+      .then(([oRes]) => {
+        setOrders(oRes.data || []);
+      })
+      .catch((err) => setError(err.response?.data?.error || "Failed to load orders"))
+      .finally(() => {
+      });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+    };
+  }, []);
 
   const q = search.trim().toLowerCase();
   const filteredOrders = orders.filter((o) => {
@@ -128,8 +313,6 @@ export default function OrdersManagement() {
           <div className="orders-list admin-orders-list">
             <AnimatePresence>
               {filteredOrders.map((order) => {
-                const canAssign = ASSIGNABLE.includes(order.status) && !order.driver_name;
-                const itemsCount = (order.items || []).reduce((s, i) => s + i.quantity, 0);
                 return (
                   <motion.div key={order.id} className="order-card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
                     <button className="order-header" onClick={() => setOpenId(openId === order.id ? null : order.id)}>
@@ -147,7 +330,7 @@ export default function OrdersManagement() {
                         <motion.div className="order-details" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}>
                           <div className="driver-order-meta">
                             <div className="driver-item"><span className="driver-meta-label">Customer</span> <span>{order.customer_name || `#${order.user_id}`}</span></div>
-                            <div className="driver-item"><span className="driver-meta-label">Items</span> <span>{itemsCount} items</span></div>
+                            <div className="driver-item"><span className="driver-meta-label">Items</span> <span>{(order.items || []).reduce((s, i) => s + i.quantity, 0)} items</span></div>
                             <div className="driver-item"><span className="driver-meta-label">Total</span> <span className="driver-total">₹{order.total_amount.toFixed(2)}</span></div>
                             <div className="driver-item"><span className="driver-meta-label">Payment</span> <span>{order.payment_method === "gpay" ? "GPay (QR)" : "Cash on Delivery"}</span></div>
                             {order.estimated_delivery && (
@@ -167,55 +350,28 @@ export default function OrdersManagement() {
                                 </span>
                               </div>
                             )}
-                          </div>
-
-                          <div className="order-items-list">
-                            {order.items.map((oi) => (
-                              <div className="order-item-row" key={oi.id}>
-                                <span className="order-item-name">{oi.product_name}</span>
-                                <span className="order-item-meta">Qty {oi.quantity} × ₹{oi.price.toFixed(2)}</span>
-                                <span className="order-item-sub">₹{(oi.price * oi.quantity).toFixed(2)}</span>
+                            {order.driver_latitude != null && order.driver_longitude != null && (
+                              <div className="driver-item">
+                                <span className="driver-meta-label"><Bike size={14} /></span>
+                                <span>
+                                  {order.driver_latitude.toFixed(4)}, {order.driver_longitude.toFixed(4)}
+                                </span>
                               </div>
-                            ))}
+                            )}
+                            {order.driver_name && order.status !== "delivered" && order.status !== "cancelled" && (
+                              <div className="driver-item">
+                                <span className="driver-meta-label"><Bike size={14} /> LiveTracking</span>
+                                <span
+                                  onClick={() => setTrackingOrderId(order.id)}
+                                  style={{ cursor: "pointer", fontWeight: "500" }}
+                                >
+                                  Live
+                                </span>
+                              </div>
+                            )}
                           </div>
 
-                          {canAssign && (
-                            <div className="assign-driver-row">
-                              <label className="assign-label" htmlFor={`assign-driver-${order.id}`}>Assign Driver:</label>
-                              <select
-                                id={`assign-driver-${order.id}`}
-                                className="assign-select"
-                                value={selectedDriver[order.id] || ""}
-                                onChange={(e) => setSelectedDriver((p) => ({ ...p, [order.id]: e.target.value }))}
-                              >
-                                <option value="">Select Driver</option>
-                                {drivers.filter((d) => d.is_active && d.availability !== "inactive").map((d) => (
-                                  <option key={d.id} value={d.id}>
-                                    {d.name} ({humanize(d.availability)})
-                                  </option>
-                                ))}
-                              </select>
-                              <button className="btn btn-primary btn-sm" onClick={() => assign(order.id)}>
-                                <Truck size={14} /> Assign
-                              </button>
-                            </div>
-                          )}
-                          <div className="assign-driver-row admin-status-row">
-                            <label className="assign-label">Update Status:</label>
-                            <select
-                              className="assign-select"
-                              value={order.status || "pending"}
-                              onChange={(e) => updateStatus(order, e)}
-                              aria-label="Update order status"
-                            >
-                              {ALL_STATUSES.map((s) => (
-                                <option key={s} value={s}>{humanize(s)}</option>
-                              ))}
-                            </select>
-                          </div>
-                          {order.status === "delivered" && (
-                            <div className="driver-delivered-note">Delivered successfully</div>
-                          )}
+                          {trackingOrderId === order.id && <LiveTrackingMap order={order} />}
                         </motion.div>
                       )}
                     </AnimatePresence>

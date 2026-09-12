@@ -7,4 +7,8 @@ export default defineConfig(({ command }) => ({
     command === 'serve'
       ? '/'
       : process.env.VITE_BASE_PATH || '/REACT/',
+  server: {
+    https: true,
+    host: true,
+  },
 }))
