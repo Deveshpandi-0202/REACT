@@ -955,7 +955,7 @@ def list_users():
     if not admin or admin.role != "admin":
         return jsonify({"error": "Admin access required"}), 403
 
-    users = User.query.all()
+    users = User.query.filter_by(is_active=True).all()
     return jsonify([u.to_dict() for u in users])
 
 

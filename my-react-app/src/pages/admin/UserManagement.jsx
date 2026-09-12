@@ -46,8 +46,13 @@ export default function UserManagement() {
     if (!window.confirm("Delete this user? This cannot be undone.")) return;
     try {
       const res = await api.delete(`/admin/users/${userId}`);
-      setUsers((prev) => prev.filter((u) => u.id !== userId));
-      toast.success(res.data?.message || "User deactivated");
+      if (res.data.message === "User deactivated") {
+        // Refetch user list from backend so deletion persists after page refresh
+        api.get("/admin/users")
+          .then((res) => { setUsers(res.data || []); })
+          .catch(() => {});
+      }
+      toast.success("User deactivated");
     } catch (err) {
       toast.error(err.response?.data?.error || "Failed to delete user");
     }
