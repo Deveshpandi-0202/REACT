@@ -5,7 +5,7 @@ const AuthContext = createContext(null);
 
 function readUser() {
   try {
-    const stored = localStorage.getItem("user");
+    const stored = sessionStorage.getItem("user");
     return stored ? JSON.parse(stored) : null;
   } catch {
     return null;
@@ -17,8 +17,8 @@ export function AuthProvider({ children }) {
 
   const signin = async (email, password) => {
     const res = await api.post("/auth/signin", { email, password });
-    localStorage.setItem("token", res.data.token);
-    localStorage.setItem("user", JSON.stringify(res.data.user));
+    sessionStorage.setItem("token", res.data.token);
+    sessionStorage.setItem("user", JSON.stringify(res.data.user));
     setUser(res.data.user);
     return res.data.user;
   };
@@ -29,8 +29,8 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
     setUser(null);
   };
 

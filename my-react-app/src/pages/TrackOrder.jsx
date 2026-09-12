@@ -186,7 +186,7 @@ useEffect(() => {
       socketUrl = socketUrl.slice(0, -4);
     }
 
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
     const socket = io(socketUrl, {
       auth: {
         token: token

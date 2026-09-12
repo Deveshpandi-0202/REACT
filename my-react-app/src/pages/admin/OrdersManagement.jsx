@@ -65,7 +65,7 @@ try {
         listenerRef.current = null;
       }
 
-      const token = user?.token || localStorage.getItem("token");
+      const token = user?.token || sessionStorage.getItem("token");
       if (!token) {
         return;
       }
