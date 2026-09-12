@@ -1,6 +1,6 @@
 # Docker Deployment Guide
 
-This guide explains how to containerize and run the **GrocerApp** full-stack app
+This guide explains how to containerize and run the **GROZO** full-stack app
 (Flask backend + React frontend) using Docker and Docker Compose.
 
 ---
@@ -187,7 +187,7 @@ JWT_SECRET_KEY=your-strong-random-secret-here
 | `docker compose logs -f` | Stream logs from all services |
 | `docker compose logs frontend` | Logs from the frontend only |
 | `docker compose ps` | Show running services & status |
-| `docker volume ls` | List Docker volumes (DB lives in `grocerapp_backend-data`) |
+| `docker volume ls` | List Docker volumes (DB lives in `GROZO_backend-data`) |
 
 ---
 

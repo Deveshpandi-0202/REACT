@@ -58,7 +58,7 @@ function RoutedApp() {
   const { pathname } = useLocation();
   const [splashDone, setSplashDone] = useState(() => {
     try {
-      return sessionStorage.getItem("grocerapp_splash") === "1";
+      return sessionStorage.getItem("grozo_splash") === "1";
     } catch {
       return false;
     }
@@ -66,7 +66,7 @@ function RoutedApp() {
 
   const finishSplash = () => {
     try {
-      sessionStorage.setItem("grocerapp_splash", "1");
+      sessionStorage.setItem("grozo_splash", "1");
     } catch {
       /* ignore */
     }

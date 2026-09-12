@@ -1,4 +1,4 @@
-# GrocerApp
+# GROZO
 
 A full-stack grocery delivery web application inspired by Blinkit. Built with React (Vite) on the frontend and Python Flask on the backend, featuring JWT-based authentication, role-based access control, product management, shopping cart, order placement, and a complete driver delivery module.
 
@@ -6,7 +6,7 @@ A full-stack grocery delivery web application inspired by Blinkit. Built with Re
 
 ## Client Quick Overview
 
-**What is GrocerApp?** A full-stack online grocery delivery app inspired by Blinkit. Customers can browse products, search and filter by category, add items to their cart, checkout, and track their orders in real time.
+**What is GROZO?** A full-stack online grocery delivery app inspired by Blinkit. Customers can browse products, search and filter by category, add items to their cart, checkout, and track their orders in real time.
 
 ### Who Uses It
 
@@ -65,8 +65,8 @@ Customer → React Website → Flask Backend → PostgreSQL Database
 | 🌐 Live Frontend Application | [Open Frontend](https://deveshpandi-0202.github.io/REACT/)                       |
 | 🔧 Live Backend API          | [Open Backend API](https://blinkit-backend-mg62.onrender.com/api)                |
 | 📦 GitHub Repository         | [View GitHub](https://github.com/Deveshpandi-0202/REACT)                         |
-| 🐳 Docker Frontend Image     | [View Docker Image](https://hub.docker.com/r/deveshpandi0202/grocerapp-frontend) |
-| 🐳 Docker Backend Image      | [View Docker Image](https://hub.docker.com/r/deveshpandi0202/grocerapp-backend)  |
+| 🐳 Docker Frontend Image     | [View Docker Image](https://hub.docker.com/r/deveshpandi0202/GROZO-frontend) |
+| 🐳 Docker Backend Image      | [View Docker Image](https://hub.docker.com/r/deveshpandi0202/GROZO-backend)  |
 
 ---
 
@@ -117,7 +117,7 @@ docker compose -f docker-compose.pull.yml down
 
 ## Project Overview
 
-GrocerApp is a multi-role grocery delivery platform that supports three user types: **Customer**, **Admin**, and **Driver**. Customers browse and order groceries, admins manage products/users/drivers and assign deliveries, and drivers handle the last-mile delivery workflow. The application ships as pre-built Docker images and can be started with a single command.
+GROZO is a multi-role grocery delivery platform that supports three user types: **Customer**, **Admin**, and **Driver**. Customers browse and order groceries, admins manage products/users/drivers and assign deliveries, and drivers handle the last-mile delivery workflow. The application ships as pre-built Docker images and can be started with a single command.
 
 ---
 
@@ -399,14 +399,14 @@ The application currently supports the following payment methods:
 
 ## Docker Deployment
 
-GrocerApp ships as two pre-built Docker images on Docker Hub. The frontend (Nginx) serves the React app and reverse-proxies `/api` requests to the backend (Gunicorn + Flask). The backend stores data in a persistent SQLite volume for **local development**. This local Docker setup is completely independent from the production deployment, which uses a **PostgreSQL** database hosted on Render.
+GROZO ships as two pre-built Docker images on Docker Hub. The frontend (Nginx) serves the React app and reverse-proxies `/api` requests to the backend (Gunicorn + Flask). The backend stores data in a persistent SQLite volume for **local development**. This local Docker setup is completely independent from the production deployment, which uses a **PostgreSQL** database hosted on Render.
 
 ### Docker Hub Images
 
 | Component | Image |
 |-----------|-------|
-| Frontend | `deveshpandi0202/grocerapp-frontend:latest` |
-| Backend | `deveshpandi0202/grocerapp-backend:latest` |
+| Frontend | `deveshpandi0202/GROZO-frontend:latest` |
+| Backend | `deveshpandi0202/GROZO-backend:latest` |
 
 ### Architecture
 
@@ -512,7 +512,7 @@ This downloads the latest images from Docker Hub and recreates the containers wi
 docker compose -f docker-compose.pull.yml ps
 ```
 
-You should see two containers (`grocerapp-backend` and `grocerapp-frontend`) with status `Up`.
+You should see two containers (`GROZO-backend` and `GROZO-frontend`) with status `Up`.
 
 ### View Logs
 
